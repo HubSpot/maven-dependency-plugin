@@ -30,7 +30,7 @@ under the License.
   </parent>
 
   <artifactId>maven-dependency-plugin</artifactId>
-  <version>3.1.2-SNAPSHOT</version>
+  <version>3.1.2-hubspot-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
 
   <name>Apache Maven Dependency Plugin</name>
@@ -100,7 +100,7 @@ under the License.
       <version>${mavenVersion}</version>
       <scope>test</scope>
     </dependency>
-  
+
     <!-- maven -->
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -207,7 +207,7 @@ under the License.
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-dependency-analyzer</artifactId>
-      <version>1.10</version>
+      <version>1.11.2-hubspot-SNAPSHOT</version>
       <exclusions>
         <exclusion>
           <artifactId>maven-project</artifactId>
@@ -273,7 +273,7 @@ under the License.
       <version>${pluginTestingVersion}</version>
       <scope>test</scope>
     </dependency>
-    <dependency> 
+    <dependency>
       <groupId>org.apache.maven.plugin-testing</groupId>
       <artifactId>maven-plugin-testing-harness</artifactId>
       <version>${pluginTestingVersion}</version>
@@ -332,7 +332,7 @@ under the License.
     </pluginManagement>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId> 
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
           <execution>
@@ -415,7 +415,7 @@ under the License.
                 <mockRepo>
                   <source>src/it/mrm/repository</source>
                 </mockRepo>
-                <!-- 
+                <!--
                 <mockRepo>
                   <source>src/test/resources/m2repo</source>
                 </mockRepo>

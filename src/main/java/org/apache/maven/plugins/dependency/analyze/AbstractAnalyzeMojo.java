@@ -23,20 +23,29 @@ import java.io.File;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.artifact.filter.StrictPatternExcludesArtifactFilter;
+import org.apache.maven.shared.dependency.analyzer.DependencyUsage;
 import org.apache.maven.shared.dependency.analyzer.ProjectDependencyAnalysis;
 import org.apache.maven.shared.dependency.analyzer.ProjectDependencyAnalyzer;
 import org.apache.maven.shared.dependency.analyzer.ProjectDependencyAnalyzerException;
@@ -59,6 +68,8 @@ public abstract class AbstractAnalyzeMojo
     implements Contextualizable
 {
     // fields -----------------------------------------------------------------
+
+    protected static final String DEPENDENCY_OVERRIDES = "maven-dependency-plugin.dep-overrides";
 
     /**
      * The plexus context to look-up the right {@link ProjectDependencyAnalyzer} implementation depending on the mojo
@@ -248,7 +259,7 @@ public abstract class AbstractAnalyzeMojo
 
         boolean warning = checkDependencies();
 
-        if ( warning && failOnWarning )
+        if ( warning && isFailOnWarning() )
         {
             throw new MojoExecutionException( "Dependency problems found" );
         }
@@ -285,6 +296,11 @@ public abstract class AbstractAnalyzeMojo
         this.context = theContext;
     }
 
+    protected MavenProject getProject()
+    {
+        return project;
+    }
+
     /**
      * @return {@link #skip}
      */
@@ -293,11 +309,55 @@ public abstract class AbstractAnalyzeMojo
         return skip;
     }
 
+    protected boolean isFailOnWarning()
+    {
+        return failOnWarning;
+    }
+
+    protected boolean isOutputXML()
+    {
+        return outputXML;
+    }
+
+    protected void handle( Set<Artifact> usedUndeclared, Set<Artifact> unusedDeclared )
+    {
+        // for subclasses to use
+    }
+
+    protected Set<String> getManagedDependencies()
+    {
+        if ( project.getDependencyManagement() == null || project.getDependencyManagement().getDependencies() == null )
+        {
+            return Collections.emptySet();
+        }
+        else
+        {
+            Set<String> managedDependencies = new HashSet<String>();
+            for ( Dependency dependency : project.getDependencyManagement().getDependencies() )
+            {
+                managedDependencies.add( dependency.getManagementKey() );
+            }
+            return managedDependencies;
+        }
+    }
+
     // private methods --------------------------------------------------------
 
     private boolean checkDependencies()
         throws MojoExecutionException
     {
+        final MavenProject project;
+        Object dependencyOverrides = getPluginContext().get( DEPENDENCY_OVERRIDES );
+        if ( dependencyOverrides == null )
+        {
+            project = this.project;
+        }
+        else
+        {
+            project = this.project.clone();
+            project.setDependencyArtifacts( ( Set<Artifact> ) dependencyOverrides );
+        }
+
         ProjectDependencyAnalysis analysis;
         try
         {
@@ -319,20 +379,29 @@ public abstract class AbstractAnalyzeMojo
         }
 
         Set<Artifact> usedDeclared = new LinkedHashSet<Artifact>( analysis.getUsedDeclaredArtifacts() );
-        Set<Artifact> usedUndeclared = new LinkedHashSet<Artifact>( analysis.getUsedUndeclaredArtifacts() );
+        Map<Artifact, Set<DependencyUsage>> usedUndeclared = new HashMap<Artifact, Set<DependencyUsage>>(
+            analysis.getUsedUndeclaredArtifactToUsageMap()
+        );
         Set<Artifact> unusedDeclared = new LinkedHashSet<Artifact>( analysis.getUnusedDeclaredArtifacts() );
 
         Set<Artifact> ignoredUsedUndeclared = new LinkedHashSet<Artifact>();
         Set<Artifact> ignoredUnusedDeclared = new LinkedHashSet<Artifact>();
 
-        ignoredUsedUndeclared.addAll( filterDependencies( usedUndeclared, ignoredDependencies ) );
-        ignoredUsedUndeclared.addAll( filterDependencies( usedUndeclared, ignoredUsedUndeclaredDependencies ) );
+        ignoredUsedUndeclared.addAll( filterDependencies( usedUndeclared.keySet(), ignoredDependencies ) );
+        ignoredUsedUndeclared.addAll(
+            filterDependencies( usedUndeclared.keySet(), ignoredUsedUndeclaredDependencies )
+        );
 
         ignoredUnusedDeclared.addAll( filterDependencies( unusedDeclared, ignoredDependencies ) );
         ignoredUnusedDeclared.addAll( filterDependencies( unusedDeclared, ignoredUnusedDeclaredDependencies ) );
 
         boolean reported = false;
         boolean warning = false;
+
+        if ( isOutputXML() )
+        {
+            writeDependencyXML( usedUndeclared.keySet() );
+        }
 
         if ( verbose && !usedDeclared.isEmpty() )
         {
@@ -346,7 +415,7 @@ public abstract class AbstractAnalyzeMojo
         {
             getLog().warn( "Used undeclared dependencies found:" );
 
-            logArtifacts( usedUndeclared, true );
+            logArtifacts( usedUndeclared, verbose );
             reported = true;
             warning = true;
         }
@@ -376,20 +445,17 @@ public abstract class AbstractAnalyzeMojo
             reported = true;
         }
 
-        if ( outputXML )
-        {
-            writeDependencyXML( usedUndeclared );
-        }
-
         if ( scriptableOutput )
         {
-            writeScriptableOutput( usedUndeclared );
+            writeScriptableOutput( usedUndeclared.keySet() );
         }
 
         if ( !reported )
         {
             getLog().info( "No dependency problems found" );
         }
+
+        handle( usedUndeclared.keySet(), unusedDeclared );
 
         return warning;
     }
@@ -420,6 +486,49 @@ public abstract class AbstractAnalyzeMojo
         }
     }
 
+    private void logArtifacts( Map<Artifact, Set<DependencyUsage>> artifactsWithUsages, boolean verbose )
+    {
+        if ( artifactsWithUsages.isEmpty() )
+        {
+            getLog().info( "   None" );
+        }
+        else
+        {
+            for ( Entry<Artifact, Set<DependencyUsage>> entry : artifactsWithUsages.entrySet() )
+            {
+                Artifact artifact = entry.getKey();
+                List<String> messages = new ArrayList<String>( toMessages( entry.getValue() ) );
+                Collections.sort( messages, new Comparator<String>()
+                    {
+                        @Override
+                        public int compare( String o1, String o2 )
+                        {
+                            return Integer.valueOf( o1.length() ).compareTo( o2.length() );
+                        }
+                    }
+                );
+                int total = messages.size();
+                if ( !verbose && total > 5 )
+                {
+                    int extra = total - 5;
+                    messages = new ArrayList<String>( messages.subList( 0, 5 ) );
+                    messages.add( String.format( "... and %d more", extra ) );
+                }
+
+                // called because artifact will set the version to -SNAPSHOT only if I do this. MNG-2961
+                artifact.isSnapshot();
+
+                getLog().warn( "   " + artifact );
+                for ( String message : messages )
+                {
+                    getLog().warn( "    - " + message );
+                }
+                getLog().warn( "" );
+
+            }
+        }
+    }
+
     private void writeDependencyXML( Set<Artifact> artifacts )
     {
         if ( !artifacts.isEmpty() )
@@ -429,6 +538,7 @@ public abstract class AbstractAnalyzeMojo
             StringWriter out = new StringWriter();
             PrettyPrintXMLWriter writer = new PrettyPrintXMLWriter( out );
 
+            Set<String> managedDependencies = getManagedDependencies();
             for ( Artifact artifact : artifacts )
             {
                 // called because artifact will set the version to -SNAPSHOT only if I do this. MNG-2961
@@ -441,15 +551,18 @@ public abstract class AbstractAnalyzeMojo
                 writer.startElement( "artifactId" );
                 writer.writeText( artifact.getArtifactId() );
                 writer.endElement();
-                writer.startElement( "version" );
-                writer.writeText( artifact.getBaseVersion() );
+                if ( !managedDependencies.contains( artifact.getDependencyConflictId() ) )
+                {
+                    writer.startElement( "version" );
+                    writer.writeText( artifact.getBaseVersion() );
+                    writer.endElement();
+                }
                 if ( !StringUtils.isBlank( artifact.getClassifier() ) )
                 {
                     writer.startElement( "classifier" );
                     writer.writeText( artifact.getClassifier() );
                     writer.endElement();
                 }
-                writer.endElement();
 
                 if ( !Artifact.SCOPE_COMPILE.equals( artifact.getScope() ) )
                 {
@@ -513,5 +626,18 @@ public abstract class AbstractAnalyzeMojo
         }
 
         return result;
+    }
+
+    private static Collection<String> toMessages( Collection<DependencyUsage> usages )
+    {
+        String messageFormat = "%s is referenced in %s";
+
+        Collection<String> messages = new ArrayList<String>();
+        for ( DependencyUsage usage : usages )
+        {
+            messages.add( String.format( messageFormat, usage.getDependencyClass(), usage.getUsedBy() ) );
+        }
+
+        return messages;
     }
 }
