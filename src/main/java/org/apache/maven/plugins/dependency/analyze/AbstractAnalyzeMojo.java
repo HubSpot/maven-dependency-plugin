@@ -393,7 +393,9 @@ public abstract class AbstractAnalyzeMojo
         );
 
         ignoredUnusedDeclared.addAll( filterDependencies( unusedDeclared, ignoredDependencies ) );
-        ignoredUnusedDeclared.addAll( filterDependencies( unusedDeclared, ignoredUnusedDeclaredDependencies ) );
+        String[] tmp = Arrays.copyOf(ignoredUnusedDeclaredDependencies, ignoredUnusedDeclaredDependencies.length + 1);
+        tmp[tmp.length - 1] = "com.hubspot.immutables:immutables-exceptions";
+        ignoredUnusedDeclared.addAll( filterDependencies( unusedDeclared, tmp ) );
 
         boolean reported = false;
         boolean warning = false;
