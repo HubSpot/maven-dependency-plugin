@@ -3,7 +3,6 @@ buildpack:
 
 env:
   SKIP_VERSION_OVERRIDE_ON_BRANCH: hubspot
-  MAVEN_OPTS: -Xmx768m
   MAVEN_ARGS: -DskipTests -Drat.skip=true
 
 
