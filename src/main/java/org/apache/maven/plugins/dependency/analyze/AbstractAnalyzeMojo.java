@@ -20,14 +20,7 @@ package org.apache.maven.plugins.dependency.analyze;
 
 import java.io.File;
 import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.Artifact;
@@ -39,6 +32,7 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.artifact.filter.StrictPatternExcludesArtifactFilter;
+import org.apache.maven.shared.dependency.analyzer.DependencyUsage;
 import org.apache.maven.shared.dependency.analyzer.ProjectDependencyAnalysis;
 import org.apache.maven.shared.dependency.analyzer.ProjectDependencyAnalyzer;
 import org.apache.maven.shared.dependency.analyzer.ProjectDependencyAnalyzerException;
@@ -183,7 +177,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
      * <pre>
      * [groupId]:[artifactId]:[type]:[version]
      * </pre>
-     *
+     * <p>
      * where each pattern segment is optional and supports full and partial <code>*</code> wildcards. An empty pattern
      * segment is treated as an implicit wildcard. *
      * <p>
@@ -202,7 +196,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
      * <pre>
      * [groupId]:[artifactId]:[type]:[version]
      * </pre>
-     *
+     * <p>
      * where each pattern segment is optional and supports full and partial <code>*</code> wildcards. An empty pattern
      * segment is treated as an implicit wildcard. *
      * <p>
@@ -221,7 +215,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
      * <pre>
      * [groupId]:[artifactId]:[type]:[version]
      * </pre>
-     *
+     * <p>
      * where each pattern segment is optional and supports full and partial <code>*</code> wildcards. An empty pattern
      * segment is treated as an implicit wildcard. *
      * <p>
@@ -241,7 +235,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
      * <pre>
      * [groupId]:[artifactId]:[type]:[version]
      * </pre>
-     *
+     * <p>
      * where each pattern segment is optional and supports full and partial <code>*</code> wildcards. An empty pattern
      * segment is treated as an implicit wildcard. *
      * <p>
@@ -335,8 +329,8 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         }
 
         Set<Artifact> usedDeclared = new LinkedHashSet<>(analysis.getUsedDeclaredArtifacts());
-        Map<Artifact, Set<String>> usedUndeclaredWithClasses =
-                new LinkedHashMap<>(analysis.getUsedUndeclaredArtifactsWithClasses());
+        Map<Artifact, Set<DependencyUsage>> usedUndeclaredWithUsages =
+                new LinkedHashMap<>(analysis.getUsedUndeclaredArtifactsWithUsages());
         Set<Artifact> unusedDeclared = new LinkedHashSet<>(analysis.getUnusedDeclaredArtifacts());
         Set<Artifact> nonTestScope = new LinkedHashSet<>(analysis.getTestArtifactsWithNonTestScope());
 
@@ -348,9 +342,9 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
             filterArtifactsByScope(unusedDeclared, Artifact.SCOPE_RUNTIME);
         }
 
-        ignoredUsedUndeclared.addAll(filterDependencies(usedUndeclaredWithClasses.keySet(), ignoredDependencies));
+        ignoredUsedUndeclared.addAll(filterDependencies(usedUndeclaredWithUsages.keySet(), ignoredDependencies));
         ignoredUsedUndeclared.addAll(
-                filterDependencies(usedUndeclaredWithClasses.keySet(), ignoredUsedUndeclaredDependencies));
+                filterDependencies(usedUndeclaredWithUsages.keySet(), ignoredUsedUndeclaredDependencies));
 
         ignoredUnusedDeclared.addAll(filterDependencies(unusedDeclared, ignoredDependencies));
         ignoredUnusedDeclared.addAll(filterDependencies(unusedDeclared, ignoredUnusedDeclaredDependencies));
@@ -372,13 +366,13 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
             reported = true;
         }
 
-        if (!usedUndeclaredWithClasses.isEmpty()) {
+        if (!usedUndeclaredWithUsages.isEmpty()) {
             logDependencyWarning("Used undeclared dependencies found:");
 
             if (verbose) {
-                logArtifacts(usedUndeclaredWithClasses, true);
+                logArtifacts(usedUndeclaredWithUsages, true);
             } else {
-                logArtifacts(usedUndeclaredWithClasses.keySet(), true);
+                logArtifacts(usedUndeclaredWithUsages.keySet(), true);
             }
             reported = true;
             warning = true;
@@ -422,11 +416,11 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         }
 
         if (outputXML) {
-            writeDependencyXML(usedUndeclaredWithClasses.keySet());
+            writeDependencyXML(usedUndeclaredWithUsages.keySet());
         }
 
         if (scriptableOutput) {
-            writeScriptableOutput(usedUndeclaredWithClasses.keySet());
+            writeScriptableOutput(usedUndeclaredWithUsages.keySet());
         }
 
         if (!reported) {
@@ -457,23 +451,33 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         }
     }
 
-    private void logArtifacts(Map<Artifact, Set<String>> artifacts, boolean warn) {
+    private void logArtifacts(Map<Artifact, Set<DependencyUsage>> artifacts, boolean warn) {
         if (artifacts.isEmpty()) {
             getLog().info("   None");
         } else {
-            for (Map.Entry<Artifact, Set<String>> entry : artifacts.entrySet()) {
+            for (Map.Entry<Artifact, Set<DependencyUsage>> entry : artifacts.entrySet()) {
                 // called because artifact will set the version to -SNAPSHOT only if I do this. MNG-2961
                 entry.getKey().isSnapshot();
 
+                List<String> messages = new ArrayList<>(toMessages(entry.getValue()));
+                Collections.sort(messages, Comparator.comparing(String::length));
+
+                int total = messages.size();
+                if (!verbose && total > 5) {
+                    int extra = total - 5;
+                    messages = new ArrayList<>(messages.subList(0, 5));
+                    messages.add(String.format("... and %d more", extra));
+                }
+
                 if (warn) {
                     logDependencyWarning("   " + entry.getKey());
-                    for (String clazz : entry.getValue()) {
-                        logDependencyWarning("      class " + clazz);
+                    for (String message : messages) {
+                        logDependencyWarning("      class " + message);
                     }
                 } else {
                     getLog().info("   " + entry.getKey());
-                    for (String clazz : entry.getValue()) {
-                        getLog().info("      class " + clazz);
+                    for (String message : messages) {
+                        getLog().info("      class " + message);
                     }
                 }
             }
@@ -553,6 +557,17 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
             }
             getLog().info(System.lineSeparator() + buf);
         }
+    }
+
+    private static Collection<String> toMessages(Collection<DependencyUsage> usages) {
+        String messageFormat = "%s is referenced in %s";
+
+        Collection<String> messages = new ArrayList<String>();
+        for (DependencyUsage usage : usages) {
+            messages.add(String.format(messageFormat, usage.getDependencyClass(), usage.getUsedBy()));
+        }
+
+        return messages;
     }
 
     private List<Artifact> filterDependencies(Set<Artifact> artifacts, String[] excludes) {
