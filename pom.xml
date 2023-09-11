@@ -233,7 +233,7 @@ under the License.
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-dependency-analyzer</artifactId>
-      <version>1.13.3-js-track-dep-class-usages-rebase-SNAPSHOT</version>
+      <version>1.13.3-js-apply-hs-changes-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
