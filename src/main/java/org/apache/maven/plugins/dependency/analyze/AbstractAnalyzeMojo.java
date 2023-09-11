@@ -540,6 +540,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
             StringWriter out = new StringWriter();
             PrettyPrintXMLWriter writer = new PrettyPrintXMLWriter(out);
 
+            Set<String> managedDependencies = getManagedDependencies();
             for (Artifact artifact : artifacts) {
                 // called because artifact will set the version to -SNAPSHOT only if I do this. MNG-2961
                 artifact.isSnapshot();
@@ -554,6 +555,11 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
                 writer.startElement("version");
                 writer.writeText(artifact.getBaseVersion());
                 String classifier = artifact.getClassifier();
+                if (!managedDependencies.contains(artifact.getDependencyConflictId())) {
+                    writer.startElement("version");
+                    writer.writeText(artifact.getBaseVersion());
+                    writer.endElement();
+                }
                 if (StringUtils.isNotBlank(classifier)) {
                     writer.startElement("classifier");
                     writer.writeText(artifact.getClassifier());
