@@ -410,7 +410,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         if (!usedUndeclaredWithUsages.isEmpty()) {
             logDependencyWarning("Used undeclared dependencies found:");
 
-            logArtifacts(usedUndeclaredWithUsages.keySet(), true);
+            logArtifacts(usedUndeclaredWithUsages, true);
 
             reported = true;
             warning = true;
