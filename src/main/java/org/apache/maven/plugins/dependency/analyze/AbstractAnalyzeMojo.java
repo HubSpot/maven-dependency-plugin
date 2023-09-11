@@ -25,6 +25,7 @@ import java.util.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -49,6 +50,8 @@ import org.codehaus.plexus.util.xml.PrettyPrintXMLWriter;
  */
 public abstract class AbstractAnalyzeMojo extends AbstractMojo {
     // fields -----------------------------------------------------------------
+
+    protected static final String DEPENDENCY_OVERRIDES = "maven-dependency-plugin.dep-overrides";
 
     /**
      * The plexusContainer to look-up the right {@link ProjectDependencyAnalyzer} implementation depending on the mojo
@@ -284,7 +287,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
 
         boolean warning = checkDependencies();
 
-        if (warning && failOnWarning) {
+        if (warning && isFailOnWarning()) {
             throw new MojoExecutionException("Dependency problems found");
         }
     }
@@ -303,6 +306,10 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         }
     }
 
+    protected MavenProject getProject() {
+        return project;
+    }
+
     /**
      * @return {@link #skip}
      */
@@ -310,9 +317,43 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         return skip;
     }
 
+    protected boolean isFailOnWarning() {
+        return failOnWarning;
+    }
+
+    protected boolean isOutputXML() {
+        return outputXML;
+    }
+
+    protected void handle(Set<Artifact> usedUndeclared, Set<Artifact> unusedDeclared) {
+        // for subclasses to use
+    }
+
+    protected Set<String> getManagedDependencies() {
+        if (project.getDependencyManagement() == null
+                || project.getDependencyManagement().getDependencies() == null) {
+            return Collections.emptySet();
+        } else {
+            Set<String> managedDependencies = new HashSet<String>();
+            for (Dependency dependency : project.getDependencyManagement().getDependencies()) {
+                managedDependencies.add(dependency.getManagementKey());
+            }
+            return managedDependencies;
+        }
+    }
+
     // private methods --------------------------------------------------------
 
     private boolean checkDependencies() throws MojoExecutionException {
+        final MavenProject project;
+        Object dependencyOverrides = getPluginContext().get(DEPENDENCY_OVERRIDES);
+        if (dependencyOverrides == null) {
+            project = this.project;
+        } else {
+            project = this.project.clone();
+            project.setDependencyArtifacts((Set<Artifact>) dependencyOverrides);
+        }
+
         ProjectDependencyAnalysis analysis;
         try {
             analysis = createProjectDependencyAnalyzer().analyze(project);
@@ -415,7 +456,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
             reported = true;
         }
 
-        if (outputXML) {
+        if (isOutputXML()) {
             writeDependencyXML(usedUndeclaredWithUsages.keySet());
         }
 
@@ -485,7 +526,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
     }
 
     private void logDependencyWarning(CharSequence content) {
-        if (failOnWarning) {
+        if (isFailOnWarning()) {
             getLog().error(content);
         } else {
             getLog().warn(content);
