@@ -410,11 +410,8 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         if (!usedUndeclaredWithUsages.isEmpty()) {
             logDependencyWarning("Used undeclared dependencies found:");
 
-            if (verbose) {
-                logArtifacts(usedUndeclaredWithUsages, true);
-            } else {
-                logArtifacts(usedUndeclaredWithUsages.keySet(), true);
-            }
+            logArtifacts(usedUndeclaredWithUsages.keySet(), true);
+
             reported = true;
             warning = true;
         }
@@ -467,6 +464,8 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         if (!reported) {
             getLog().info("No dependency problems found");
         }
+
+        handle(usedUndeclaredWithUsages.keySet(), unusedDeclared);
 
         return warning;
     }
