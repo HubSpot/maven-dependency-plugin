@@ -96,6 +96,8 @@ under the License.
     <project.build.outputTimestamp>2023-05-19T13:54:25Z</project.build.outputTimestamp>
     <slf4j.version>1.7.36</slf4j.version>
     <plexus-archiver.version>4.8.0</plexus-archiver.version>
+
+    <hubspot.build.moved.after>1697123661928</hubspot.build.moved.after>
   </properties>
 
   <dependencyManagement>
