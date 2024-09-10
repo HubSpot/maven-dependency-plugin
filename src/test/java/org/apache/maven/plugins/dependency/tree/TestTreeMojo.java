@@ -18,17 +18,31 @@
  */
 package org.apache.maven.plugins.dependency.tree;
 
+import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
+
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.StringReader;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugin.LegacySupport;
+import org.apache.maven.plugin.testing.stubs.MavenProjectStub;
 import org.apache.maven.plugins.dependency.AbstractDependencyMojoTestCase;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
+import org.apache.maven.shared.dependency.graph.internal.DefaultDependencyNode;
 
 /**
  * Tests <code>TreeMojo</code>.
@@ -46,20 +60,26 @@ public class TestTreeMojo extends AbstractDependencyMojoTestCase {
     protected void setUp() throws Exception {
         // required for mojo lookups to work
         super.setUp("tree", false);
+
+        MavenProject project = new MavenProjectStub();
+        getContainer().addComponent(project, MavenProject.class.getName());
+
+        MavenSession session = newMavenSession(project);
+        getContainer().addComponent(session, MavenSession.class.getName());
+
+        LegacySupport legacySupport = lookup(LegacySupport.class);
+        legacySupport.setSession(session);
+        installLocalRepository(legacySupport);
     }
 
     // tests ------------------------------------------------------------------
-
-    public void testVoid() {
-        // TODO: tests disabled during MDEP-339 work, to be reactivated
-    }
 
     /**
      * Tests the proper discovery and configuration of the mojo.
      *
      * @throws Exception in case of an error.
      */
-    public void _testTreeTestEnvironment() throws Exception {
+    public void testTreeTestEnvironment() throws Exception {
         File testPom = new File(getBasedir(), "target/test-classes/unit/tree-test/plugin-config.xml");
         TreeMojo mojo = (TreeMojo) lookupMojo("tree", testPom);
 
@@ -80,8 +100,8 @@ public class TestTreeMojo extends AbstractDependencyMojoTestCase {
         DependencyNode rootNode = mojo.getDependencyGraph();
         assertNodeEquals("testGroupId:project:jar:1.0:compile", rootNode);
         assertEquals(2, rootNode.getChildren().size());
-        assertChildNodeEquals("testGroupId:snapshot:jar:2.0-SNAPSHOT:compile", rootNode, 0);
-        assertChildNodeEquals("testGroupId:release:jar:1.0:compile", rootNode, 1);
+        assertChildNodeEquals("testGroupId:release:jar:1.0:compile", rootNode, 0);
+        assertChildNodeEquals("testGroupId:snapshot:jar:2.0-SNAPSHOT:compile", rootNode, 1);
     }
 
     /**
@@ -89,7 +109,7 @@ public class TestTreeMojo extends AbstractDependencyMojoTestCase {
      *
      * @throws Exception in case of an error.
      */
-    public void _testTreeDotSerializing() throws Exception {
+    public void testTreeDotSerializing() throws Exception {
         List<String> contents = runTreeMojo("tree1.dot", "dot");
         assertTrue(findString(contents, "digraph \"testGroupId:project:jar:1.0:compile\" {"));
         assertTrue(findString(
@@ -104,7 +124,7 @@ public class TestTreeMojo extends AbstractDependencyMojoTestCase {
      *
      * @throws Exception in case of an error.
      */
-    public void _testTreeGraphMLSerializing() throws Exception {
+    public void testTreeGraphMLSerializing() throws Exception {
         List<String> contents = runTreeMojo("tree1.graphml", "graphml");
 
         assertTrue(findString(contents, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
@@ -120,11 +140,79 @@ public class TestTreeMojo extends AbstractDependencyMojoTestCase {
      *
      * @throws Exception in case of an error.
      */
-    public void _testTreeTGFSerializing() throws Exception {
+    public void testTreeTGFSerializing() throws Exception {
         List<String> contents = runTreeMojo("tree1.tgf", "tgf");
         assertTrue(findString(contents, "testGroupId:project:jar:1.0:compile"));
         assertTrue(findString(contents, "testGroupId:snapshot:jar:2.0-SNAPSHOT:compile"));
         assertTrue(findString(contents, "testGroupId:release:jar:1.0:compile"));
+    }
+
+    /**
+     * Test the JSON format serialization on DependencyNodes with circular dependence
+     */
+    public void testTreeJsonCircularDependency() throws IOException {
+        String outputFileName = testDir.getAbsolutePath() + "tree1.json";
+        File outputFile = new File(outputFileName);
+        Files.createDirectories(outputFile.getParentFile().toPath());
+        outputFile.createNewFile();
+
+        Artifact artifact1 = this.stubFactory.createArtifact("testGroupId", "project1", "1.0");
+        Artifact artifact2 = this.stubFactory.createArtifact("testGroupId", "project2", "1.0");
+        DefaultDependencyNode node1 = new DefaultDependencyNode(artifact1);
+        DefaultDependencyNode node2 = new DefaultDependencyNode(artifact2);
+
+        node1.setChildren(new ArrayList<DependencyNode>());
+        node2.setChildren(new ArrayList<DependencyNode>());
+
+        node1.getChildren().add(node2);
+        node2.getChildren().add(node1);
+
+        JsonDependencyNodeVisitor jsonDependencyNodeVisitor =
+                new JsonDependencyNodeVisitor(new OutputStreamWriter(new FileOutputStream(outputFile)));
+
+        jsonDependencyNodeVisitor.visit(node1);
+    }
+
+    /*
+     * Test parsing of Json output and verify all key-value pairs
+     */
+    public void testTreeJsonParsing() throws Exception {
+        List<String> contents = runTreeMojo("tree2.json", "json");
+
+        try (JsonReader reader = Json.createReader(new StringReader(String.join("\n", contents)))) {
+            JsonObject root = reader.readObject();
+
+            assertEquals(root.getString("groupId"), "testGroupId");
+            assertEquals(root.getString("artifactId"), "project");
+            assertEquals(root.getString("version"), "1.0");
+            assertEquals(root.getString("type"), "jar");
+            assertEquals(root.getString("scope"), "compile");
+            assertEquals(root.getString("classifier"), "");
+            assertEquals(root.getString("optional"), "false");
+
+            JsonArray children = root.getJsonArray("children");
+            assertEquals(children.size(), 2);
+
+            JsonObject child0 = children.getJsonObject(0);
+
+            assertEquals(child0.getString("groupId"), "testGroupId");
+            assertEquals(child0.getString("artifactId"), "release");
+            assertEquals(child0.getString("version"), "1.0");
+            assertEquals(child0.getString("type"), "jar");
+            assertEquals(child0.getString("scope"), "compile");
+            assertEquals(child0.getString("classifier"), "");
+            assertEquals(child0.getString("optional"), "false");
+
+            JsonObject child1 = children.getJsonObject(1);
+
+            assertEquals(child1.getString("groupId"), "testGroupId");
+            assertEquals(child1.getString("artifactId"), "snapshot");
+            assertEquals(child1.getString("version"), "2.0-SNAPSHOT");
+            assertEquals(child1.getString("type"), "jar");
+            assertEquals(child1.getString("scope"), "compile");
+            assertEquals(child1.getString("classifier"), "");
+            assertEquals(child1.getString("optional"), "false");
+        }
     }
 
     /**

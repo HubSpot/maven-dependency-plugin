@@ -20,14 +20,15 @@ package org.apache.maven.plugins.dependency.utils;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.Writer;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.plugin.logging.Log;
@@ -106,15 +107,13 @@ public final class DependencyUtil {
             destFileName.append(artifact.getGroupId()).append(".");
         }
 
-        String versionString;
+        String versionString = "";
         if (!removeVersion) {
             if (useBaseVersion) {
                 versionString = "-" + ArtifactUtils.toSnapshotVersion(artifact.getVersion());
             } else {
                 versionString = "-" + artifact.getVersion();
             }
-        } else {
-            versionString = "";
         }
 
         String classifierString = "";
@@ -135,8 +134,9 @@ public final class DependencyUtil {
      * @param useSubdirsPerScope if a new sub directory should be used for each scope.
      * @param useSubdirsPerType if a new sub directory should be used for each type.
      * @param useSubdirPerArtifact if a new sub directory should be used for each artifact.
-     * @param useRepositoryLayout if dependencies must be moved into a Maven repository layout, if set, other settings
-     *            will be ignored.
+     * @param useRepositoryLayout if dependencies must be moved into a Maven repository layout, if set, other
+     *         settings
+     *         will be ignored.
      * @param removeVersion if the version must not be mentioned in the filename
      * @param removeType if the type must not be mentioned in the filename
      * @param outputDirectory base outputDirectory.
@@ -227,9 +227,16 @@ public final class DependencyUtil {
      */
     public static synchronized void write(String string, File file, boolean append, String encoding)
             throws IOException {
-        file.getParentFile().mkdirs();
+        Files.createDirectories(file.getParentFile().toPath());
 
-        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file, append), encoding)) {
+        OpenOption appendOption = append ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING;
+
+        try (Writer writer = Files.newBufferedWriter(
+                file.toPath(),
+                Charset.forName(encoding),
+                appendOption,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE)) {
             writer.write(string);
         }
     }
@@ -242,15 +249,9 @@ public final class DependencyUtil {
      * @throws IOException if an I/O error occurs
      */
     public static synchronized void log(String string, Log log) throws IOException {
-        BufferedReader reader = new BufferedReader(new StringReader(string));
-
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            log.info(line);
+        try (BufferedReader reader = new BufferedReader(new StringReader(string))) {
+            reader.lines().forEach(log::info);
         }
-
-        reader.close();
     }
 
     /**
@@ -260,7 +261,11 @@ public final class DependencyUtil {
      * @return the result items
      */
     public static String[] tokenizer(String str) {
-        return StringUtils.split(cleanToBeTokenizedString(str), ",");
+        String s = cleanToBeTokenizedString(str);
+        if (s.isEmpty()) {
+            return new String[0];
+        }
+        return cleanToBeTokenizedString(str).split(",");
     }
 
     /**
@@ -273,7 +278,7 @@ public final class DependencyUtil {
         String ret = "";
         if (!(str == null || str.isEmpty())) {
             // remove initial and ending spaces, plus all spaces next to commas
-            ret = str.trim().replaceAll("[\\s]*,[\\s]*", ",");
+            ret = str.trim().replaceAll("\\s*,\\s*", ",");
         }
 
         return ret;

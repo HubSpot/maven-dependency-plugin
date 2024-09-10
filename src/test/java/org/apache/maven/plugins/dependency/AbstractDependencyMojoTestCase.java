@@ -22,15 +22,19 @@ import java.io.File;
 import java.io.IOException;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.LegacySupport;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
 import org.apache.maven.plugins.dependency.testUtils.DependencyArtifactStubFactory;
+import org.apache.maven.plugins.dependency.utils.CopyUtil;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.LocalRepositoryManager;
+import org.sonatype.plexus.build.incremental.DefaultBuildContext;
 
 public abstract class AbstractDependencyMojoTestCase extends AbstractMojoTestCase {
 
@@ -60,14 +64,14 @@ public abstract class AbstractDependencyMojoTestCase extends AbstractMojoTestCas
                 FileUtils.deleteDirectory(testDir);
             } catch (IOException e) {
                 e.printStackTrace();
-                fail("Trying to remove directory:" + testDir + System.lineSeparator() + e.toString());
+                fail("Trying to remove directory: " + testDir + System.lineSeparator() + e);
             }
             assertFalse(testDir.exists());
         }
     }
 
-    protected void copyFile(AbstractDependencyMojo mojo, File artifact, File destFile) throws MojoExecutionException {
-        mojo.copyFile(artifact, destFile);
+    protected void copyArtifactFile(Artifact sourceArtifact, File destFile) throws MojoExecutionException, IOException {
+        new CopyUtil(new DefaultBuildContext()).copyArtifactFile(sourceArtifact, destFile);
     }
 
     protected void installLocalRepository(LegacySupport legacySupport) throws ComponentLookupException {
@@ -78,5 +82,13 @@ public abstract class AbstractDependencyMojoTestCase extends AbstractMojoTestCas
         LocalRepository localRepository = new LocalRepository(directory);
         LocalRepositoryManager manager = system.newLocalRepositoryManager(repoSession, localRepository);
         repoSession.setLocalRepositoryManager(manager);
+    }
+
+    protected void installLocalRepository(RepositorySystemSession repoSession) throws ComponentLookupException {
+        RepositorySystem system = lookup(RepositorySystem.class);
+        String directory = stubFactory.getWorkingDir().toString();
+        LocalRepository localRepository = new LocalRepository(directory);
+        LocalRepositoryManager manager = system.newLocalRepositoryManager(repoSession, localRepository);
+        ((DefaultRepositorySystemSession) repoSession).setLocalRepositoryManager(manager);
     }
 }

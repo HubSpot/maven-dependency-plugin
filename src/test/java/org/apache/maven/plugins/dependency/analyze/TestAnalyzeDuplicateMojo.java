@@ -22,8 +22,12 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.dependency.AbstractDependencyMojoTestCase;
+import org.apache.maven.plugins.dependency.testUtils.stubs.DuplicateDependencies2ProjectStub;
+import org.apache.maven.plugins.dependency.testUtils.stubs.DuplicateDependenciesProjectStub;
+import org.apache.maven.project.MavenProject;
 
 /**
  * @author <a href="mailto:vincent.siveton@gmail.com">Vincent Siveton</a>
@@ -31,6 +35,12 @@ import org.apache.maven.plugins.dependency.AbstractDependencyMojoTestCase;
  */
 public class TestAnalyzeDuplicateMojo extends AbstractDependencyMojoTestCase {
     public void testDuplicate() throws Exception {
+        MavenProject project = new DuplicateDependenciesProjectStub();
+        getContainer().addComponent(project, MavenProject.class.getName());
+
+        MavenSession session = newMavenSession(project);
+        getContainer().addComponent(session, MavenSession.class.getName());
+
         File testPom = new File(getBasedir(), "target/test-classes/unit/duplicate-dependencies/plugin-config.xml");
         AnalyzeDuplicateMojo mojo = (AnalyzeDuplicateMojo) lookupMojo("analyze-duplicate", testPom);
         assertNotNull(mojo);
@@ -44,6 +54,12 @@ public class TestAnalyzeDuplicateMojo extends AbstractDependencyMojoTestCase {
     }
 
     public void testDuplicate2() throws Exception {
+        MavenProject project = new DuplicateDependencies2ProjectStub();
+        getContainer().addComponent(project, MavenProject.class.getName());
+
+        MavenSession session = newMavenSession(project);
+        getContainer().addComponent(session, MavenSession.class.getName());
+
         File testPom = new File(getBasedir(), "target/test-classes/unit/duplicate-dependencies/plugin-config2.xml");
         AnalyzeDuplicateMojo mojo = (AnalyzeDuplicateMojo) lookupMojo("analyze-duplicate", testPom);
         assertNotNull(mojo);
@@ -56,7 +72,7 @@ public class TestAnalyzeDuplicateMojo extends AbstractDependencyMojoTestCase {
         assertTrue(log.getContent().contains("junit:junit:jar"));
     }
 
-    class DuplicateLog implements Log {
+    static class DuplicateLog implements Log {
         StringBuilder sb = new StringBuilder();
 
         /** {@inheritDoc} */
@@ -116,8 +132,8 @@ public class TestAnalyzeDuplicateMojo extends AbstractDependencyMojoTestCase {
 
             error.printStackTrace(pWriter);
 
-            System.err.println("[error] " + content.toString() + System.lineSeparator() + System.lineSeparator()
-                    + sWriter.toString());
+            System.err.println(
+                    "[error] " + content.toString() + System.lineSeparator() + System.lineSeparator() + sWriter);
         }
 
         /**
@@ -129,7 +145,7 @@ public class TestAnalyzeDuplicateMojo extends AbstractDependencyMojoTestCase {
 
             error.printStackTrace(pWriter);
 
-            System.err.println("[error] " + sWriter.toString());
+            System.err.println("[error] " + sWriter);
         }
 
         /**
@@ -175,11 +191,7 @@ public class TestAnalyzeDuplicateMojo extends AbstractDependencyMojoTestCase {
 
             error.printStackTrace(pWriter);
 
-            sb.append("[")
-                    .append(prefix)
-                    .append("] ")
-                    .append(sWriter.toString())
-                    .append(System.lineSeparator());
+            sb.append("[").append(prefix).append("] ").append(sWriter).append(System.lineSeparator());
         }
 
         private void print(String prefix, CharSequence content, Throwable error) {
@@ -194,7 +206,7 @@ public class TestAnalyzeDuplicateMojo extends AbstractDependencyMojoTestCase {
                     .append(content.toString())
                     .append(System.lineSeparator())
                     .append(System.lineSeparator());
-            sb.append(sWriter.toString()).append(System.lineSeparator());
+            sb.append(sWriter).append(System.lineSeparator());
         }
 
         protected String getContent() {

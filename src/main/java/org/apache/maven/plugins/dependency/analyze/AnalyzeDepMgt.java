@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
@@ -34,6 +33,7 @@ import org.apache.maven.model.Exclusion;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
@@ -54,7 +54,7 @@ public class AnalyzeDepMgt extends AbstractMojo {
     /**
      *
      */
-    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    @Component
     private MavenProject project;
 
     /**
@@ -143,7 +143,8 @@ public class AnalyzeDepMgt extends AbstractMojo {
             // log exclusion errors
             List<Artifact> exclusionErrors = getExclusionErrors(exclusions, allDependencyArtifacts);
             for (Artifact exclusion : exclusionErrors) {
-                getLog().info(StringUtils.stripEnd(getArtifactManagementKey(exclusion), ":")
+                String artifactManagementKey = getArtifactManagementKey(exclusion);
+                getLog().info(artifactManagementKey.substring(artifactManagementKey.lastIndexOf(":"))
                         + " was excluded in DepMgt, but version " + exclusion.getVersion()
                         + " has been found in the dependency tree.");
                 foundError = true;
@@ -249,7 +250,8 @@ public class AnalyzeDepMgt extends AbstractMojo {
                     "Invalid params: Artifact: " + dependencyArtifact + " Dependency: " + dependencyFromDepMgt);
         }
 
-        getLog().info("\tDependency: " + StringUtils.stripEnd(dependencyFromDepMgt.getManagementKey(), ":"));
+        String managementKey = dependencyFromDepMgt.getManagementKey();
+        getLog().info("\tDependency: " + managementKey.substring(managementKey.lastIndexOf(":")));
         getLog().info("\t\tDepMgt  : " + dependencyFromDepMgt.getVersion());
         getLog().info("\t\tResolved: " + dependencyArtifact.getBaseVersion());
     }

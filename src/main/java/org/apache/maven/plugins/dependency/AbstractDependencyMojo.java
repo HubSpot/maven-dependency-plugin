@@ -18,8 +18,6 @@
  */
 package org.apache.maven.plugins.dependency;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.List;
 
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -33,7 +31,6 @@ import org.apache.maven.plugins.dependency.utils.DependencySilentLog;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuildingRequest;
-import org.codehaus.plexus.util.FileUtils;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
@@ -59,7 +56,7 @@ public abstract class AbstractDependencyMojo extends AbstractMojo {
     /**
      * POM
      */
-    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    @Component
     private MavenProject project;
 
     /**
@@ -83,7 +80,7 @@ public abstract class AbstractDependencyMojo extends AbstractMojo {
     /**
      * The Maven session
      */
-    @Parameter(defaultValue = "${session}", readonly = true, required = true)
+    @Component
     protected MavenSession session;
 
     /**
@@ -93,14 +90,6 @@ public abstract class AbstractDependencyMojo extends AbstractMojo {
      */
     @Parameter(property = "silent", defaultValue = "false")
     private boolean silent;
-
-    /**
-     * Output absolute filename for resolved artifacts
-     *
-     * @since 2.0
-     */
-    @Parameter(property = "outputAbsoluteArtifactFilename", defaultValue = "false")
-    protected boolean outputAbsoluteArtifactFilename;
 
     /**
      * Skip plugin execution completely.
@@ -130,32 +119,6 @@ public abstract class AbstractDependencyMojo extends AbstractMojo {
      * @throws MojoFailureException {@link MojoFailureException}
      */
     protected abstract void doExecute() throws MojoExecutionException, MojoFailureException;
-
-    /**
-     * Does the actual copy of the file and logging.
-     *
-     * @param artifact represents the file to copy.
-     * @param destFile file name of destination file.
-     * @throws MojoExecutionException with a message if an error occurs.
-     */
-    protected void copyFile(File artifact, File destFile) throws MojoExecutionException {
-        try {
-            getLog().info("Copying "
-                    + (this.outputAbsoluteArtifactFilename ? artifact.getAbsolutePath() : artifact.getName()) + " to "
-                    + destFile);
-
-            if (artifact.isDirectory()) {
-                // usual case is a future jar packaging, but there are special cases: classifier and other packaging
-                throw new MojoExecutionException("Artifact has not been packaged yet. When used on reactor artifact, "
-                        + "copy should be executed after packaging: see MDEP-187.");
-            }
-
-            FileUtils.copyFile(artifact, destFile);
-            buildContext.refresh(destFile);
-        } catch (IOException e) {
-            throw new MojoExecutionException("Error copying artifact from " + artifact + " to " + destFile, e);
-        }
-    }
 
     /**
      * @return Returns a new ProjectBuildingRequest populated from the current session and the current project remote

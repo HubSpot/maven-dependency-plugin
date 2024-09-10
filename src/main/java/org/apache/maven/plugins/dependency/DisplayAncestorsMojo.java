@@ -20,14 +20,13 @@ package org.apache.maven.plugins.dependency;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 /**
@@ -43,7 +42,7 @@ public class DisplayAncestorsMojo extends AbstractMojo {
     /**
      * POM
      */
-    @Parameter(defaultValue = "${project}", readonly = true)
+    @Component
     private MavenProject project;
 
     @Override
@@ -62,14 +61,8 @@ public class DisplayAncestorsMojo extends AbstractMojo {
 
         MavenProject currentAncestor = project.getParent();
         while (currentAncestor != null) {
-            final String gav = String.format(
-                    Locale.US,
-                    "%s:%s:%s",
-                    currentAncestor.getGroupId(),
-                    currentAncestor.getArtifactId(),
-                    currentAncestor.getVersion());
-
-            ancestors.add(gav);
+            ancestors.add(currentAncestor.getGroupId() + ":" + currentAncestor.getArtifactId() + ":"
+                    + currentAncestor.getVersion());
 
             currentAncestor = currentAncestor.getParent();
         }

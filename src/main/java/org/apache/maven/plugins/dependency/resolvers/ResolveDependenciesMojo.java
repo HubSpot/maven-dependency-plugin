@@ -52,13 +52,11 @@ import org.apache.maven.shared.utils.logging.MessageUtils;
  * @author <a href="mailto:brianf@apache.org">Brian Fox</a>
  * @since 2.0
  */
-// CHECKSTYLE_OFF: LineLength
 @Mojo(
         name = "resolve",
         requiresDependencyResolution = ResolutionScope.TEST,
         defaultPhase = LifecyclePhase.GENERATE_SOURCES,
         threadSafe = true)
-// CHECKSTYLE_ON: LineLength
 public class ResolveDependenciesMojo extends AbstractResolveMojo {
 
     @Parameter(property = "outputEncoding", defaultValue = "${project.reporting.outputEncoding}")
@@ -71,6 +69,14 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
      */
     @Parameter(property = "mdep.outputScope", defaultValue = "true")
     protected boolean outputScope;
+
+    /**
+     * Output absolute filename for resolved artifacts
+     *
+     * @since 2.0
+     */
+    @Parameter(property = "outputAbsoluteArtifactFilename", defaultValue = "false")
+    private boolean outputAbsoluteArtifactFilename;
 
     /**
      * Only used to store results for integration test validation
@@ -278,7 +284,7 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
         } catch (ClassNotFoundException | SecurityException | IllegalAccessException | IllegalArgumentException e) {
             // do nothing
         } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+            getLog().warn(e);
         } catch (InvocationTargetException e) {
             Throwable cause = e.getCause();
             while (cause.getCause() != null) {
@@ -289,7 +295,7 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
         return moduleDescriptor;
     }
 
-    private class ModuleDescriptor {
+    private static class ModuleDescriptor {
         String name;
 
         boolean automatic = true;

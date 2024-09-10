@@ -16,22 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package foo;
 
-import java.io.*;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.model.Model;
 
-import org.codehaus.plexus.util.*;
-
-String actual = FileUtils.fileRead( new File( basedir, "target/tree.txt" ) );
-String expected = FileUtils.fileRead( new File( basedir, "expected.txt" ) );
-
-actual = actual.replaceAll( "[\n\r]+", "\n" );
-expected = expected.replaceAll( "[\n\r]+", "\n" );
-
-System.out.println( "Checking dependency tree..." );
-
-if ( !actual.equals( expected ) )
+public class Main
 {
-    throw new Exception( "Unexpected dependency tree" );
-}
+    public static final String SCOPE_COMPILE = Artifact.SCOPE_COMPILE;
 
-return true;
+    public Model model = null;
+
+    public Metadata metadata = null;
+}

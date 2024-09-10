@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -38,6 +37,7 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.dependency.utils.StringUtils;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.repository.RepositorySystem;
@@ -59,7 +59,7 @@ import org.apache.maven.shared.transfer.dependencies.resolve.DependencyResolverE
 public class GetMojo extends AbstractMojo {
     private static final Pattern ALT_REPO_SYNTAX_PATTERN = Pattern.compile("(.+)::(.*)::(.+)");
 
-    @Parameter(defaultValue = "${session}", required = true, readonly = true)
+    @Component
     private MavenSession session;
 
     @Component
@@ -105,7 +105,7 @@ public class GetMojo extends AbstractMojo {
     private List<ArtifactRepository> pomRemoteRepositories;
 
     /**
-     * Download transitively, retrieving the specified artifact and all of its dependencies.
+     * Resolve transitively, retrieving the specified artifact and all of its dependencies.
      */
     @Parameter(property = "transitive", defaultValue = "true")
     private boolean transitive = true;
@@ -130,7 +130,7 @@ public class GetMojo extends AbstractMojo {
                     + "e.g. -Dartifact=org.apache.maven.plugins:maven-downloader-plugin:1.0");
         }
         if (artifact != null) {
-            String[] tokens = StringUtils.split(artifact, ":");
+            String[] tokens = artifact.split("\\s*:+\\s*");
             if (tokens.length < 3 || tokens.length > 5) {
                 throw new MojoFailureException("Invalid artifact, you must specify "
                         + "groupId:artifactId:version[:packaging[:classifier]] " + artifact);
@@ -157,7 +157,7 @@ public class GetMojo extends AbstractMojo {
 
         if (remoteRepositories != null) {
             // Use the same format as in the deploy plugin id::layout::url
-            String[] repos = StringUtils.split(remoteRepositories, ",");
+            String[] repos = remoteRepositories.split("\\s*,+\\s*");
             for (String repo : repos) {
                 repoList.add(parseRepository(repo, always));
             }
@@ -214,6 +214,7 @@ public class GetMojo extends AbstractMojo {
             }
 
             id = matcher.group(1).trim();
+
             if (!StringUtils.isEmpty(matcher.group(2))) {
                 layout = getLayout(matcher.group(2).trim());
             }
@@ -240,7 +241,7 @@ public class GetMojo extends AbstractMojo {
     }
 
     /**
-     * The groupId of the artifact to download. Ignored if {@link #artifact} is used.
+     * The groupId of the artifact to resolve. Ignored if {@link #artifact} is used.
      *
      * @param groupId The groupId.
      */
@@ -250,7 +251,7 @@ public class GetMojo extends AbstractMojo {
     }
 
     /**
-     * The artifactId of the artifact to download. Ignored if {@link #artifact} is used.
+     * The artifactId of the artifact to resolve. Ignored if {@link #artifact} is used.
      *
      * @param artifactId The artifactId.
      */
@@ -260,7 +261,7 @@ public class GetMojo extends AbstractMojo {
     }
 
     /**
-     * The version of the artifact to download. Ignored if {@link #artifact} is used.
+     * The version of the artifact to resolve. Ignored if {@link #artifact} is used.
      *
      * @param version The version.
      */
@@ -270,7 +271,7 @@ public class GetMojo extends AbstractMojo {
     }
 
     /**
-     * The classifier of the artifact to download. Ignored if {@link #artifact} is used.
+     * The classifier of the artifact to resolve. Ignored if {@link #artifact} is used.
      *
      * @param classifier The classifier to be used.
      *
@@ -282,7 +283,7 @@ public class GetMojo extends AbstractMojo {
     }
 
     /**
-     * The packaging of the artifact to download. Ignored if {@link #artifact} is used.
+     * The packaging of the artifact to resolve. Ignored if {@link #artifact} is used.
      *
      * @param type packaging.
      */
