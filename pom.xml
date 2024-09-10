@@ -23,17 +23,16 @@ under the License.
   <parent>
     <groupId>org.apache.maven.plugins</groupId>
     <artifactId>maven-plugins</artifactId>
-    <version>40</version>
+    <version>42</version>
     <relativePath />
   </parent>
 
   <artifactId>maven-dependency-plugin</artifactId>
-  <version>3.6.1-hubspot-SNAPSHOT</version>
+  <version>3.7.1-hubspot-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
 
   <name>Apache Maven Dependency Plugin</name>
-  <description>Provides utility goals to work with dependencies like copying, unpacking, analyzing, resolving and many
-        more.</description>
+  <description>Provides utility goals to work with dependencies like copying, unpacking, analyzing, resolving and many more.</description>
 
   <contributors>
     <contributor>
@@ -69,7 +68,7 @@ under the License.
   <scm>
     <connection>scm:git:https://gitbox.apache.org/repos/asf/maven-dependency-plugin.git</connection>
     <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/maven-dependency-plugin.git</developerConnection>
-    <tag>maven-dependency-plugin-3.5.0</tag>
+    <tag>maven-dependency-plugin-3.7.1</tag>
     <url>https://github.com/apache/maven-dependency-plugin/tree/${project.scm.tag}</url>
   </scm>
   <issueManagement>
@@ -88,37 +87,26 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>3.2.5</mavenVersion>
-    <jettyVersion>9.4.51.v20230217</jettyVersion>
-    <pluginTestingVersion>3.3.0</pluginTestingVersion>
-    <resolverVersion>1.0.0.v20140518</resolverVersion>
+    <mavenVersion>3.6.3</mavenVersion>
     <javaVersion>8</javaVersion>
-    <project.build.outputTimestamp>2023-05-19T13:54:25Z</project.build.outputTimestamp>
-    <slf4j.version>1.7.36</slf4j.version>
-    <plexus-archiver.version>4.8.0</plexus-archiver.version>
 
-    <hubspot.build.moved.after>1697123661928</hubspot.build.moved.after>
+    <jettyVersion>9.4.54.v20240208</jettyVersion>
+    <mockito.version>4.11.0</mockito.version>
+    <plexus-archiver.version>4.9.2</plexus-archiver.version>
+    <pluginTestingVersion>3.3.0</pluginTestingVersion>
+    <resolverVersion>1.4.1</resolverVersion>
+    <slf4jVersion>1.7.36</slf4jVersion>
+
+    <project.build.outputTimestamp>2024-06-18T07:03:42Z</project.build.outputTimestamp>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!-- TODO check with Maven Api upgrade -->
-      <!-- the same version as in Maven 3.1.1 -->
-      <dependency>
-        <groupId>org.eclipse.sisu</groupId>
-        <artifactId>org.eclipse.sisu.inject</artifactId>
-        <version>0.3.0.M1</version>
-      </dependency>
-      <dependency>
-        <groupId>org.eclipse.sisu</groupId>
-        <artifactId>org.eclipse.sisu.plexus</artifactId>
-        <version>0.3.0.M1</version>
-      </dependency>
       <!-- override the version from maven-reporting-impl -->
       <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-text</artifactId>
-        <version>1.10.0</version>
+        <version>1.12.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -163,7 +151,7 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
-      <artifactId>maven-aether-provider</artifactId>
+      <artifactId>maven-resolver-provider</artifactId>
       <version>${mavenVersion}</version>
       <scope>provided</scope>
     </dependency>
@@ -172,7 +160,7 @@ under the License.
     <dependency>
       <groupId>org.apache.maven.doxia</groupId>
       <artifactId>doxia-sink-api</artifactId>
-      <version>1.11.1</version>
+      <version>1.12.0</version>
       <exclusions>
         <exclusion>
           <groupId>org.codehaus.plexus</groupId>
@@ -194,12 +182,28 @@ under the License.
           <groupId>org.codehaus.plexus</groupId>
           <artifactId>plexus-container-default</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-artifact</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-model</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-plugin-api</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
-      <version>2.13.0</version>
+      <version>2.16.1</version>
       <scope>test</scope>
     </dependency>
 
@@ -212,12 +216,15 @@ under the License.
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-utils</artifactId>
-      <version>3.5.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-xml</artifactId>
     </dependency>
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-io</artifactId>
-      <version>3.4.1</version>
+      <version>3.4.2</version>
     </dependency>
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
@@ -240,28 +247,32 @@ under the License.
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-dependency-tree</artifactId>
-      <version>3.2.1</version>
+      <version>3.3.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-common-artifact-filters</artifactId>
-      <version>3.3.2</version>
+      <version>3.4.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-artifact-transfer</artifactId>
       <version>0.13.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-artifact</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-core</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-shared-utils</artifactId>
       <version>3.4.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-collections4</artifactId>
-      <version>4.4</version>
     </dependency>
 
     <!-- dependencies to annotations -->
@@ -270,18 +281,23 @@ under the License.
       <artifactId>maven-plugin-annotations</artifactId>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject</artifactId>
+      <version>1</version>
+      <scope>provided</scope>
+    </dependency>
 
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-api</artifactId>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-api</artifactId>
       <version>${resolverVersion}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-util</artifactId>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-util</artifactId>
       <version>${resolverVersion}</version>
-      <scope>provided</scope>
     </dependency>
     <!-- IDE build support (https://github.com/codehaus-plexus/plexus-build-api) -->
     <dependency>
@@ -291,24 +307,57 @@ under the License.
       <!-- stick with old GAV until https://github.com/eclipse-m2e/m2e-core/issues/944 is fixed -->
       <scope>compile</scope>
     </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4jVersion}</version>
+    </dependency>
 
     <!-- test -->
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-connector-basic</artifactId>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-connector-basic</artifactId>
       <version>${resolverVersion}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-transport-file</artifactId>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-transport-file</artifactId>
       <version>${resolverVersion}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-transport-http</artifactId>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-transport-http</artifactId>
       <version>${resolverVersion}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>javax.json</groupId>
+      <artifactId>javax.json-api</artifactId>
+      <version>1.1.4</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish</groupId>
+      <artifactId>javax.json</artifactId>
+      <version>1.1.4</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <!-- support for JUnit 4 -->
+      <groupId>org.junit.vintage</groupId>
+      <artifactId>junit-vintage-engine</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -322,11 +371,30 @@ under the License.
       <artifactId>maven-plugin-testing-harness</artifactId>
       <version>${pluginTestingVersion}</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.plexus</groupId>
+          <artifactId>plexus-container-default</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>4.11.0</version>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>3.26.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -359,7 +427,7 @@ under the License.
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-simple</artifactId>
-      <version>${slf4j.version}</version>
+      <version>${slf4jVersion}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -376,16 +444,7 @@ under the License.
                                             These files contain results for integration tests which can't contain license header
                                             otherwise the IT's will fail.
                                           -->
-              <exclude>src/it/projects/tree/expected.txt</exclude>
-              <exclude>src/it/projects/tree-includes/expected.txt</exclude>
-              <exclude>src/it/projects/tree-multimodule/expected.txt</exclude>
-              <exclude>src/it/projects/tree-multimodule/module-a/expected.txt</exclude>
-              <exclude>src/it/projects/tree-multimodule/module-b/expected.txt</exclude>
-              <exclude>src/it/projects/tree-verbose-multimodule/expected.txt</exclude>
-              <exclude>src/it/projects/tree-verbose-multimodule/module-a/expected.txt</exclude>
-              <exclude>src/it/projects/tree-verbose-multimodule/module-b/expected.txt</exclude>
-              <exclude>src/it/projects/tree-verbose/expected*.txt</exclude>
-              <exclude>src/it/projects/tree-verbose-small/expected.txt</exclude>
+              <exclude>src/it/projects/**/expected*.txt</exclude>
               <!-- These files contain expected versions for unit tests -->
               <exclude>src/test/resources/unit/verbose-serializer-test/*</exclude>
               <!--
@@ -400,13 +459,6 @@ under the License.
             </excludes>
           </configuration>
         </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-checkstyle-plugin</artifactId>
-          <configuration>
-            <configLocation>config/maven_checks_nocodestyle.xml</configLocation>
-          </configuration>
-        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
@@ -415,10 +467,7 @@ under the License.
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <!-- Need more heap space in order to run the unit tests !-->
-          <argLine>-Xmx384m</argLine>
-          <systemPropertyVariables>
-            <maven.home>${maven.home}</maven.home>
-          </systemPropertyVariables>
+          <argLine>-Xmx512m</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -452,28 +501,29 @@ under the License.
               <!-- for mrm -->
               <settingsFile>src/it/mrm/settings.xml</settingsFile>
               <filterProperties>
-                <repository.proxy.url>${repository.proxy.url}</repository.proxy.url>
                 <compilerPluginVersion>3.11.0</compilerPluginVersion>
               </filterProperties>
+              <addTestClassPath>true</addTestClassPath>
             </configuration>
             <dependencies>
               <!-- dependencies used only in verification scripts -->
               <dependency>
                 <groupId>org.jsoup</groupId>
                 <artifactId>jsoup</artifactId>
-                <version>1.16.1</version>
+                <version>1.17.2</version>
               </dependency>
             </dependencies>
           </plugin>
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>mrm-maven-plugin</artifactId>
-            <version>1.5.0</version>
+            <version>1.6.0</version>
             <configuration>
               <propertyName>repository.proxy.url</propertyName>
               <repositories>
                 <mockRepo>
                   <source>src/it/mrm/repository</source>
+                  <cloneTo>${project.build.directory}/mock-repo</cloneTo>
                 </mockRepo>
                 <localRepo>
                   <source>${project.build.directory}/local-repo</source>

@@ -22,7 +22,6 @@ import java.io.File;
 import java.io.StringWriter;
 import java.util.*;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.model.Dependency;
@@ -31,6 +30,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.dependency.utils.StringUtils;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.artifact.filter.StrictPatternExcludesArtifactFilter;
 import org.apache.maven.shared.dependency.analyzer.DependencyUsage;
@@ -63,7 +63,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
     /**
      * The Maven project to analyze.
      */
-    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    @Component
     private MavenProject project;
 
     /**
@@ -91,7 +91,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
 
     /**
      * Ignore Runtime/Provided/Test/System scopes for unused dependency analysis.
-     *
+     * <p>
      * <code><b>Non-test scoped</b></code> list will be not affected.
      */
     @Parameter(property = "ignoreNonCompile", defaultValue = "false")
@@ -263,6 +263,14 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
     @Parameter
     private List<String> ignoredPackagings = Arrays.asList("pom", "ear");
 
+    /**
+     * List Excluded classes patterns from analyze. Java regular expression pattern is applied to full class name.
+     *
+     * @since 3.7.0
+     */
+    @Parameter(property = "mdep.analyze.excludedClasses")
+    private Set<String> excludedClasses;
+
     // Mojo methods -----------------------------------------------------------
 
     /*
@@ -356,7 +364,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
 
         ProjectDependencyAnalysis analysis;
         try {
-            analysis = createProjectDependencyAnalyzer().analyze(project);
+            analysis = createProjectDependencyAnalyzer().analyze(project, excludedClasses);
 
             if (usedDependencies != null) {
                 analysis = analysis.forceDeclaredDependenciesUsage(usedDependencies);
@@ -557,9 +565,9 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
                     writer.endElement();
                 }
                 String classifier = artifact.getClassifier();
-                if (StringUtils.isNotBlank(classifier)) {
+                if (!StringUtils.isEmpty(classifier)) {
                     writer.startElement("classifier");
-                    writer.writeText(artifact.getClassifier());
+                    writer.writeText(classifier);
                     writer.endElement();
                 }
 

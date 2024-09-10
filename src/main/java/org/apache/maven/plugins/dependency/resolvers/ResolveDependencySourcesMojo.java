@@ -18,37 +18,28 @@
  */
 package org.apache.maven.plugins.dependency.resolvers;
 
-import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 
 /**
  * Goal that resolves the project source dependencies from the repository.
  *
  * @author <a href="mailto:brianf@apache.org">Brian Fox</a>
- * @since 2.0-alpha2
+ * @since 2.0-alpha2/3.7.0
  */
 @Mojo(
-        name = "sources",
+        name = "resolve-sources",
         defaultPhase = LifecyclePhase.GENERATE_SOURCES,
         requiresDependencyResolution = ResolutionScope.TEST,
         threadSafe = true)
 public class ResolveDependencySourcesMojo extends ResolveDependenciesMojo {
 
-    private static final String SOURCE_CLASSIFIER = "sources";
+    private static final String SOURCES_CLASSIFIER = "sources";
 
-    /**
-     * Main entry into mojo. Gets the list of dependencies and iterates through resolving the source jars.
-     *
-     * @throws MojoExecutionException with a message if an error occurs.
-     */
-    @Override
-    protected void doExecute() throws MojoExecutionException {
-        if (this.classifier == null || this.classifier.isEmpty()) {
-            this.classifier = SOURCE_CLASSIFIER;
-        }
-
-        super.doExecute();
+    @Parameter(name = "classifier", defaultValue = SOURCES_CLASSIFIER, readonly = true)
+    public void setClassifier(String classifier) {
+        this.classifier = classifier;
     }
 }

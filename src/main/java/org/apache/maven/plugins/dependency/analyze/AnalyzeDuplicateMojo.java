@@ -34,10 +34,11 @@ import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.util.ReaderFactory;
+import org.codehaus.plexus.util.xml.XmlStreamReader;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 /**
@@ -65,7 +66,7 @@ public class AnalyzeDuplicateMojo extends AbstractMojo {
     /**
      * The Maven project to analyze.
      */
-    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    @Component
     private MavenProject project;
 
     /**
@@ -80,7 +81,7 @@ public class AnalyzeDuplicateMojo extends AbstractMojo {
 
         MavenXpp3Reader pomReader = new MavenXpp3Reader();
         Model model;
-        try (Reader reader = ReaderFactory.newXmlReader(project.getFile())) {
+        try (Reader reader = new XmlStreamReader(project.getFile())) {
             model = pomReader.read(reader);
         } catch (IOException | XmlPullParserException e) {
             throw new MojoExecutionException("Exception: " + e.getMessage(), e);
