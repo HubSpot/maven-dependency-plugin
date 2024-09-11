@@ -572,7 +572,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
                 }
 
                 if (!Artifact.SCOPE_COMPILE.equals(artifact.getScope())
-                  && !Artifact.SCOPE_PROVIDED.equals(artifact.getScope())) {
+                        && !Artifact.SCOPE_PROVIDED.equals(artifact.getScope())) {
                     writer.startElement("scope");
                     writer.writeText(artifact.getScope());
                     writer.endElement();
