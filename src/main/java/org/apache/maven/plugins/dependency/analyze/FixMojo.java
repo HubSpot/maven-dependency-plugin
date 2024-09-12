@@ -18,10 +18,9 @@
  */
 package org.apache.maven.plugins.dependency.analyze;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import javax.inject.Inject;
+import javax.inject.Provider;
+
 import java.util.*;
 
 import org.apache.commons.lang.StringUtils;
@@ -29,14 +28,11 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.InputLocation;
 import org.apache.maven.model.InputSource;
-import org.apache.maven.model.Model;
-import org.apache.maven.model.building.ModelProcessor;
-import org.apache.maven.model.building.ModelSource;
-import org.apache.maven.model.building.StringModelSource;
 import org.apache.maven.model.io.ModelReader;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.plugins.dependency.utils.PomFileUtil;
+import org.apache.maven.project.MavenProject;
 
 /**
  * Analyzes the dependencies of this project and determines which are: used and declared; used and undeclared; unused
@@ -53,8 +49,15 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 @Mojo(name = "fix", requiresDependencyResolution = ResolutionScope.TEST, threadSafe = true)
 public class FixMojo extends AbstractAnalyzeMojo {
 
-    @Component
-    ModelReader modelReader;
+    // TODO: could not get this working via sisu DI
+    // @Component
+    // private PomFileUtil pomFileUtil;
+
+    @Inject
+    private ModelReader modelReader;
+
+    @Inject
+    private Provider<MavenProject> project;
 
     @Override
     protected boolean isFailOnWarning() {
@@ -66,29 +69,31 @@ public class FixMojo extends AbstractAnalyzeMojo {
         return false;
     }
 
+    private PomFileUtil getPomFileUtil() {
+        return new PomFileUtil(modelReader, project);
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     protected void handle(Set<Artifact> usedUndeclared, Set<Artifact> unusedDeclared) {
         if (!(usedUndeclared.isEmpty() && unusedDeclared.isEmpty())) {
-            File pomFile = getProject().getFile();
-            List<String> pomLines = readLines(pomFile);
+            List<String> pomLines = getPomFileUtil().readPomFile();
 
             // rebuild model from disk in case the pom.xml has been modified since the build started
-            List<Dependency> dependencies = rebuildModel(pomLines).getDependencies();
+            List<Dependency> dependencies = getPomFileUtil().getDependencies(pomLines);
 
             if (!usedUndeclared.isEmpty()) {
                 addUsedDependencies(dependencies, usedUndeclared, pomLines);
 
                 // rebuild model again, since adding dependencies may have changed line numbers
-                dependencies = rebuildModel(pomLines).getDependencies();
+                dependencies = getPomFileUtil().getDependencies(pomLines);
             }
 
             if (!unusedDeclared.isEmpty()) {
                 removeUnusedDependencies(dependencies, unusedDeclared, pomLines);
             }
 
-            getLog().info("Writing updated POM to " + pomFile);
-            writeLines(pomFile, pomLines);
+            getPomFileUtil().writePomFile(pomLines);
 
             // Store the updated deps in the plugin context so the analyze mojo can access it
             getPluginContext().put(DEPENDENCY_OVERRIDES, updatedDependencies(usedUndeclared, unusedDeclared));
@@ -116,33 +121,15 @@ public class FixMojo extends AbstractAnalyzeMojo {
 
     private void removeUnusedDependencies(
             List<Dependency> dependencies, Set<Artifact> removals, List<String> pomLines) {
-        String pomLocation = getProject().getFile().toString();
 
         Set<String> keysToRemove = new HashSet<String>();
         for (Artifact removal : removals) {
             keysToRemove.add(removal.getDependencyConflictId());
         }
 
-        for (Dependency dependency : sortByLineNumberDescending(dependencies)) {
+        for (Dependency dependency : getPomFileUtil().sortByLineNumberDescending(dependencies)) {
             if (keysToRemove.contains(dependency.getManagementKey())) {
-                InputLocation inputLocation = dependency.getLocation("");
-                InputSource inputSource = inputLocation.getSource();
-                String dependencySource = inputSource == null ? null : inputSource.getLocation();
-                if (!pomLocation.equals(dependencySource)) {
-                    getLog().warn("Unable to fix dependency because it comes from parent: " + dependencySource);
-                } else {
-                    int lineIndex = inputLocation.getLineNumber() - 1; // line numbers start at 1
-                    getLog().debug("Starting removal of " + dependency.toString() + " at index " + lineIndex);
-
-                    while (!pomLines.get(lineIndex).contains("</dependency>")) {
-                        getLog().debug("Removing line " + pomLines.get(lineIndex));
-                        pomLines.remove(lineIndex);
-                    }
-
-                    // remove that last </dependency> line
-                    getLog().debug("Removing line " + pomLines.get(lineIndex));
-                    pomLines.remove(lineIndex);
-                }
+                getPomFileUtil().removeDependency(dependency, pomLines);
             }
         }
     }
@@ -160,29 +147,36 @@ public class FixMojo extends AbstractAnalyzeMojo {
 
         final int backupTestIndex;
         if (testDependencies.isEmpty() && nonTestDependencies.isEmpty()) {
-            Dependency lastDep = sortByLineNumberDescending(localDependencies).get(0);
+            Dependency lastDep = getPomFileUtil()
+                    .sortByLineNumberDescending(localDependencies)
+                    .get(0);
             backupTestIndex = lineIndexAfter(lastDep, pomLines);
         } else if (testDependencies.isEmpty()) {
-            Dependency lastDep = sortByLineNumberDescending(nonTestDependencies).get(0);
+            Dependency lastDep = getPomFileUtil()
+                    .sortByLineNumberDescending(nonTestDependencies)
+                    .get(0);
             backupTestIndex = lineIndexAfter(lastDep, pomLines);
         } else {
             Dependency firstTestDep =
-                    sortByLineNumberAscending(testDependencies).get(0);
-            backupTestIndex = startIndex(firstTestDep);
+                    getPomFileUtil().sortByLineNumberAscending(testDependencies).get(0);
+            backupTestIndex = getPomFileUtil().startIndex(firstTestDep);
         }
 
         final int backupNonTestIndex;
         if (testDependencies.isEmpty() && nonTestDependencies.isEmpty()) {
-            Dependency firstDep = sortByLineNumberAscending(localDependencies).get(0);
+            Dependency firstDep = getPomFileUtil()
+                    .sortByLineNumberAscending(localDependencies)
+                    .get(0);
             backupNonTestIndex = lineIndexAfter(firstDep, pomLines);
         } else if (nonTestDependencies.isEmpty()) {
             Dependency firstTestDep =
-                    sortByLineNumberAscending(testDependencies).get(0);
-            backupNonTestIndex = startIndex(firstTestDep);
+                    getPomFileUtil().sortByLineNumberAscending(testDependencies).get(0);
+            backupNonTestIndex = getPomFileUtil().startIndex(firstTestDep);
         } else {
-            Dependency firstNonTestDep =
-                    sortByLineNumberAscending(nonTestDependencies).get(0);
-            backupNonTestIndex = startIndex(firstNonTestDep);
+            Dependency firstNonTestDep = getPomFileUtil()
+                    .sortByLineNumberAscending(nonTestDependencies)
+                    .get(0);
+            backupNonTestIndex = getPomFileUtil().startIndex(firstNonTestDep);
         }
 
         // add test deps first to maintain line numbers since they go at the bottom
@@ -192,7 +186,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
 
     private void addDependencies(
             Set<Artifact> additions, List<String> pomLines, List<Dependency> existing, int backupIndex) {
-        existing = sortByLineNumberDescending(existing);
+        existing = getPomFileUtil().sortByLineNumberDescending(existing);
 
         for (Artifact addition : sortByCoordinatesDescending(additions)) {
             boolean inserted = false;
@@ -215,9 +209,10 @@ public class FixMojo extends AbstractAnalyzeMojo {
                 if (matchingGroupId.isEmpty()) {
                     insertIndex = backupIndex;
                 } else {
-                    Dependency firstInGroup =
-                            sortByLineNumberAscending(matchingGroupId).get(0);
-                    insertIndex = startIndex(firstInGroup);
+                    Dependency firstInGroup = getPomFileUtil()
+                            .sortByLineNumberAscending(matchingGroupId)
+                            .get(0);
+                    insertIndex = getPomFileUtil().startIndex(firstInGroup);
                 }
 
                 insertDependency(addition, insertIndex, pomLines);
@@ -228,30 +223,6 @@ public class FixMojo extends AbstractAnalyzeMojo {
     private void insertDependency(Artifact addition, int index, List<String> pomLines) {
         List<String> lines = toDependencyLines(addition);
         pomLines.addAll(index, lines);
-    }
-
-    private Model rebuildModel(List<String> pomLines) {
-        String pom = StringUtils.join(pomLines, '\n');
-        ModelSource modelSource =
-                new StringModelSource(pom, getProject().getFile().getPath());
-        InputSource inputSource = new InputSource();
-
-        Map<String, Object> options = new HashMap<String, Object>();
-        options.put(ModelProcessor.IS_STRICT, true);
-        options.put(ModelProcessor.INPUT_SOURCE, inputSource);
-        options.put(ModelProcessor.SOURCE, modelSource);
-
-        final Model model;
-        try {
-            model = modelReader.read(modelSource.getInputStream(), options);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        inputSource.setModelId(getProject().getModel().getId());
-        inputSource.setLocation(getProject().getFile().getAbsolutePath());
-
-        return model;
     }
 
     private List<Dependency> excludeParentDeps(List<Dependency> unfiltered) {
@@ -271,7 +242,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
     }
 
     private static int lineIndexAfter(Dependency dependency, List<String> pomLines) {
-        int lineIndex = startIndex(dependency);
+        int lineIndex = PomFileUtil.startIndex(dependency);
 
         while (!pomLines.get(lineIndex).contains("</dependency>")) {
             lineIndex++;
@@ -288,7 +259,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
     private static List<Dependency> consecutiveTestDeps(List<Dependency> dependencies) {
         List<Dependency> testDependencies = new ArrayList<Dependency>();
 
-        for (Dependency dependency : sortByLineNumberDescending(dependencies)) {
+        for (Dependency dependency : PomFileUtil.sortByLineNumberDescending(dependencies)) {
             if (Artifact.SCOPE_TEST.equals(dependency.getScope())) {
                 testDependencies.add(dependency);
             } else {
@@ -306,7 +277,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
     private static List<Dependency> consecutiveNonTestDeps(List<Dependency> dependencies) {
         List<Dependency> nonTestDependencies = new ArrayList<Dependency>();
 
-        for (Dependency dependency : sortByLineNumberAscending(dependencies)) {
+        for (Dependency dependency : PomFileUtil.sortByLineNumberAscending(dependencies)) {
             if (Artifact.SCOPE_TEST.equals(dependency.getScope())) {
                 break;
             } else {
@@ -376,45 +347,6 @@ public class FixMojo extends AbstractAnalyzeMojo {
         return lines;
     }
 
-    private static List<String> readLines(File file) {
-        try {
-            return Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static void writeLines(File file, List<String> lines) {
-        try {
-            Files.write(file.toPath(), lines, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static List<Dependency> sortByLineNumberAscending(List<Dependency> unsorted) {
-        Comparator<Dependency> lineNumberComparator = new Comparator<Dependency>() {
-
-            @Override
-            public int compare(Dependency dep1, Dependency dep2) {
-                Integer line1 = startIndex(dep1);
-                Integer line2 = startIndex(dep2);
-
-                return line1.compareTo(line2);
-            }
-        };
-
-        List<Dependency> sorted = new ArrayList<Dependency>(unsorted);
-        Collections.sort(sorted, lineNumberComparator);
-        return sorted;
-    }
-
-    private static List<Dependency> sortByLineNumberDescending(List<Dependency> unsorted) {
-        List<Dependency> ascending = new ArrayList<Dependency>(sortByLineNumberAscending(unsorted));
-        Collections.reverse(ascending);
-        return ascending;
-    }
-
     /**
      * Test-scoped deps go at the bottom of the <dependencies> section, so sort
      * these first to prevent throwing off line numbers at the top. Same idea
@@ -438,10 +370,5 @@ public class FixMojo extends AbstractAnalyzeMojo {
         List<Artifact> sorted = new ArrayList<Artifact>(unsorted);
         Collections.sort(sorted, coordinatesComparator);
         return sorted;
-    }
-
-    private static int startIndex(Dependency dependency) {
-        // line numbers start at 1, but we want it 0-indexed
-        return dependency.getLocation("").getLineNumber() - 1;
     }
 }

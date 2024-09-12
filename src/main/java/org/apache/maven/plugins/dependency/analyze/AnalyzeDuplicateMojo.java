@@ -20,12 +20,7 @@ package org.apache.maven.plugins.dependency.analyze;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.maven.model.Dependency;
@@ -107,10 +102,15 @@ public class AnalyzeDuplicateMojo extends AbstractMojo {
 
             if (sb.length() > 0) {
                 getLog().info(sb.toString());
+                handle(duplicateDependencies, duplicateDependenciesManagement);
             } else {
                 getLog().info("No duplicate dependencies found in <dependencies/> or in <dependencyManagement/>");
             }
         }
+    }
+
+    protected void handle(Set<String> duplicateDependencies, Set<String> duplicateDependenciesManagement) {
+        // for subclasses to use
     }
 
     private void createMessage(
