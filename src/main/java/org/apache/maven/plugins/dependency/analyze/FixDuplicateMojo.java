@@ -24,7 +24,6 @@ import javax.inject.Provider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.io.ModelReader;
@@ -60,39 +59,91 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
 
         List<String> pomLines = pomFileUtil.readPomFile();
 
-        List<Dependency> dependenciesToRemove = new ArrayList<>();
+        DuplicateDependenciesResult result = new DuplicateDependenciesResult();
 
         if (!duplicateDependencies.isEmpty()) {
-            dependenciesToRemove.addAll(
-                    findDuplicateDependencies(pomFileUtil.getDependencies(pomLines), duplicateDependencies));
-        }
-        if (!duplicateDependenciesManagement.isEmpty()) {
-            dependenciesToRemove.addAll(findDuplicateDependencies(
-                    pomFileUtil.getManagedDependencies(pomLines), duplicateDependenciesManagement));
+            result.add(findDuplicateDependencies(pomFileUtil.getDependencies(pomLines), duplicateDependencies));
         }
 
-        for (Dependency dep : PomFileUtil.sortByLineNumberDescending(dependenciesToRemove)) {
+        if (!result.dependenciesToUpdate.isEmpty()) {
+            int inserts = 0;
+            for (Dependency dep : PomFileUtil.sortByLineNumberDescending(result.dependenciesToUpdate)) {
+                inserts += pomFileUtil.updateDependency(dep, pomLines);
+            }
+
+            // re-resolve duplicate dependencies after making POM inserts
+            if (inserts > 0) {
+                result = new DuplicateDependenciesResult();
+                result.add(findDuplicateDependencies(pomFileUtil.getDependencies(pomLines), duplicateDependencies));
+            }
+        }
+
+        if (!duplicateDependenciesManagement.isEmpty()) {
+            // dep mgmt doesn't have scope, requires version
+            result.dependenciesToRemove.addAll(findDuplicateDependencies(
+                            pomFileUtil.getManagedDependencies(pomLines), duplicateDependenciesManagement)
+                    .dependenciesToRemove);
+        }
+
+        for (Dependency dep : PomFileUtil.sortByLineNumberDescending(result.dependenciesToRemove)) {
             pomFileUtil.removeDependency(dep, pomLines);
         }
 
         pomFileUtil.writePomFile(pomLines);
     }
 
-    private static List<Dependency> findDuplicateDependencies(List<Dependency> dependencies, Set<String> duplicates) {
-        List<Dependency> duplicateDependencies = new ArrayList<>();
+    private static DuplicateDependenciesResult findDuplicateDependencies(
+            List<Dependency> dependencies, Set<String> duplicates) {
+        DuplicateDependenciesResult result = new DuplicateDependenciesResult();
 
         for (String duplicate : duplicates) {
-            AtomicBoolean seenFirst = new AtomicBoolean();
+            List<Dependency> foundDuplicates = new ArrayList<>();
 
             for (Dependency dep : dependencies) {
                 if (dep.getManagementKey().equals(duplicate)) {
-                    if (seenFirst.getAndSet(true)) {
-                        duplicateDependencies.add(dep);
-                    }
+                    foundDuplicates.add(dep);
                 }
             }
+
+            String lastDefinedVersion = null;
+            String lastDefinedScope = null;
+
+            for (int i = foundDuplicates.size() - 1; i > 0; i--) {
+                Dependency dep = foundDuplicates.get(i);
+
+                lastDefinedVersion = dep.getVersion();
+                lastDefinedScope = dep.getScope();
+            }
+
+            Dependency depToRetain = foundDuplicates.remove(0);
+            if (lastDefinedVersion != null || isNotEmptyOrDefaultScope(lastDefinedScope)) {
+                if (lastDefinedVersion != null) {
+                    depToRetain.setVersion(lastDefinedVersion);
+                }
+                if (isNotEmptyOrDefaultScope(lastDefinedScope)) {
+                    depToRetain.setScope(lastDefinedScope);
+                }
+
+                result.dependenciesToUpdate.add(depToRetain);
+            }
+
+            result.dependenciesToRemove.addAll(foundDuplicates);
         }
 
-        return duplicateDependencies;
+        return result;
+    }
+
+    private static boolean isNotEmptyOrDefaultScope(String scope) {
+        return scope != null && !scope.equals("compile");
+    }
+
+    private static class DuplicateDependenciesResult {
+        private final List<Dependency> dependenciesToUpdate = new ArrayList<>();
+        private final List<Dependency> dependenciesToRemove = new ArrayList<>();
+
+        public void add(DuplicateDependenciesResult other) {
+            dependenciesToUpdate.addAll(other.dependenciesToUpdate);
+            dependenciesToRemove.addAll(other.dependenciesToRemove);
+        }
     }
 }

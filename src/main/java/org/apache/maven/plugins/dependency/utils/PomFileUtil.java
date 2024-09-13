@@ -27,9 +27,15 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.InputLocation;
 import org.apache.maven.model.InputSource;
@@ -39,6 +45,7 @@ import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.building.StringModelSource;
 import org.apache.maven.model.io.ModelReader;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.shared.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +72,7 @@ public class PomFileUtil {
     }
 
     private Model rebuildModel(List<String> pomLines) {
-        String pom = StringUtils.join(pomLines, '\n');
+        String pom = String.join("\n", pomLines);
         ModelSource modelSource =
                 new StringModelSource(pom, project.get().getFile().getPath());
         InputSource inputSource = new InputSource();
@@ -86,6 +93,58 @@ public class PomFileUtil {
         inputSource.setLocation(project.get().getFile().getAbsolutePath());
 
         return model;
+    }
+
+    public int updateDependency(Dependency dependency, List<String> pomLines) {
+        int inserts = 0;
+        if (dependency.getVersion() != null) {
+            inserts += upsertLine(
+                    pomLines,
+                    "version",
+                    dependency.getVersion(),
+                    dependency.getLocation("version"),
+                    dependency.getLocation("artifactId"));
+        }
+        if (dependency.getScope() != null) {
+            inserts += upsertLine(
+                    pomLines,
+                    "scope",
+                    dependency.getScope(),
+                    dependency.getLocation("scope"),
+                    dependency.getLocation("classifier"),
+                    dependency.getLocation("version"),
+                    dependency.getLocation("artifactId"));
+        }
+
+        return inserts;
+    }
+
+    private int upsertLine(
+            List<String> pomLines,
+            String tag,
+            String value,
+            InputLocation replaceLocation,
+            InputLocation... appendLocations) {
+
+        if (replaceLocation != null) {
+            int indent = pomLines.get(replaceLocation.getLineNumber() - 1).indexOf("<");
+            pomLines.set(replaceLocation.getLineNumber() - 1, getIndentedLine(tag, value, indent));
+            return 0;
+        } else {
+            InputLocation appendLocation = Arrays.stream(appendLocations)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Unable to find insert location in POM for tag: " + tag + " value: " + value));
+
+            int indent = pomLines.get(appendLocation.getLineNumber() - 1).indexOf("<");
+            pomLines.add(appendLocation.getLineNumber(), getIndentedLine(tag, value, indent));
+            return 1;
+        }
+    }
+
+    private String getIndentedLine(String tag, String value, int indent) {
+        return String.format("%s<%s>%s</%s>", StringUtils.repeat(" ", indent), tag, value, tag);
     }
 
     public void removeDependency(Dependency dependency, List<String> pomLines) {

@@ -127,7 +127,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
             keysToRemove.add(removal.getDependencyConflictId());
         }
 
-        for (Dependency dependency : getPomFileUtil().sortByLineNumberDescending(dependencies)) {
+        for (Dependency dependency : PomFileUtil.sortByLineNumberDescending(dependencies)) {
             if (keysToRemove.contains(dependency.getManagementKey())) {
                 getPomFileUtil().removeDependency(dependency, pomLines);
             }
@@ -147,36 +147,32 @@ public class FixMojo extends AbstractAnalyzeMojo {
 
         final int backupTestIndex;
         if (testDependencies.isEmpty() && nonTestDependencies.isEmpty()) {
-            Dependency lastDep = getPomFileUtil()
-                    .sortByLineNumberDescending(localDependencies)
-                    .get(0);
+            Dependency lastDep =
+                    PomFileUtil.sortByLineNumberDescending(localDependencies).get(0);
             backupTestIndex = lineIndexAfter(lastDep, pomLines);
         } else if (testDependencies.isEmpty()) {
-            Dependency lastDep = getPomFileUtil()
-                    .sortByLineNumberDescending(nonTestDependencies)
-                    .get(0);
+            Dependency lastDep =
+                    PomFileUtil.sortByLineNumberDescending(nonTestDependencies).get(0);
             backupTestIndex = lineIndexAfter(lastDep, pomLines);
         } else {
             Dependency firstTestDep =
-                    getPomFileUtil().sortByLineNumberAscending(testDependencies).get(0);
-            backupTestIndex = getPomFileUtil().startIndex(firstTestDep);
+                    PomFileUtil.sortByLineNumberAscending(testDependencies).get(0);
+            backupTestIndex = PomFileUtil.startIndex(firstTestDep);
         }
 
         final int backupNonTestIndex;
         if (testDependencies.isEmpty() && nonTestDependencies.isEmpty()) {
-            Dependency firstDep = getPomFileUtil()
-                    .sortByLineNumberAscending(localDependencies)
-                    .get(0);
+            Dependency firstDep =
+                    PomFileUtil.sortByLineNumberAscending(localDependencies).get(0);
             backupNonTestIndex = lineIndexAfter(firstDep, pomLines);
         } else if (nonTestDependencies.isEmpty()) {
             Dependency firstTestDep =
-                    getPomFileUtil().sortByLineNumberAscending(testDependencies).get(0);
-            backupNonTestIndex = getPomFileUtil().startIndex(firstTestDep);
+                    PomFileUtil.sortByLineNumberAscending(testDependencies).get(0);
+            backupNonTestIndex = PomFileUtil.startIndex(firstTestDep);
         } else {
-            Dependency firstNonTestDep = getPomFileUtil()
-                    .sortByLineNumberAscending(nonTestDependencies)
-                    .get(0);
-            backupNonTestIndex = getPomFileUtil().startIndex(firstNonTestDep);
+            Dependency firstNonTestDep =
+                    PomFileUtil.sortByLineNumberAscending(nonTestDependencies).get(0);
+            backupNonTestIndex = PomFileUtil.startIndex(firstNonTestDep);
         }
 
         // add test deps first to maintain line numbers since they go at the bottom
@@ -186,7 +182,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
 
     private void addDependencies(
             Set<Artifact> additions, List<String> pomLines, List<Dependency> existing, int backupIndex) {
-        existing = getPomFileUtil().sortByLineNumberDescending(existing);
+        existing = PomFileUtil.sortByLineNumberDescending(existing);
 
         for (Artifact addition : sortByCoordinatesDescending(additions)) {
             boolean inserted = false;
@@ -209,10 +205,9 @@ public class FixMojo extends AbstractAnalyzeMojo {
                 if (matchingGroupId.isEmpty()) {
                     insertIndex = backupIndex;
                 } else {
-                    Dependency firstInGroup = getPomFileUtil()
-                            .sortByLineNumberAscending(matchingGroupId)
+                    Dependency firstInGroup = PomFileUtil.sortByLineNumberAscending(matchingGroupId)
                             .get(0);
-                    insertIndex = getPomFileUtil().startIndex(firstInGroup);
+                    insertIndex = PomFileUtil.startIndex(firstInGroup);
                 }
 
                 insertDependency(addition, insertIndex, pomLines);
