@@ -23,6 +23,7 @@ import javax.inject.Provider;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.maven.model.Dependency;
@@ -112,18 +113,25 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
                 Dependency dep = foundDuplicates.get(i);
 
                 lastDefinedVersion = dep.getVersion();
-                lastDefinedScope = dep.getScope();
+                lastDefinedScope = Optional.ofNullable(dep.getScope()).orElse("compile");
             }
 
             Dependency depToRetain = foundDuplicates.remove(0);
-            if (lastDefinedVersion != null || isNotEmptyOrDefaultScope(lastDefinedScope)) {
-                if (lastDefinedVersion != null) {
-                    depToRetain.setVersion(lastDefinedVersion);
-                }
-                if (isNotEmptyOrDefaultScope(lastDefinedScope)) {
-                    depToRetain.setScope(lastDefinedScope);
-                }
+            boolean needsUpdate = false;
 
+            if (lastDefinedVersion != null && !lastDefinedVersion.equals(depToRetain.getVersion())) {
+                depToRetain.setVersion(lastDefinedVersion);
+                needsUpdate = true;
+            }
+
+            if (!Optional.ofNullable(lastDefinedScope)
+                    .orElse("compile")
+                    .equals(Optional.ofNullable(depToRetain.getScope()).orElse("compile"))) {
+                depToRetain.setScope("compile".equals(lastDefinedScope) ? null : lastDefinedScope);
+                needsUpdate = true;
+            }
+
+            if (needsUpdate) {
                 result.dependenciesToUpdate.add(depToRetain);
             }
 

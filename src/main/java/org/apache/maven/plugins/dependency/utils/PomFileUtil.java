@@ -97,24 +97,20 @@ public class PomFileUtil {
 
     public int updateDependency(Dependency dependency, List<String> pomLines) {
         int inserts = 0;
-        if (dependency.getVersion() != null) {
-            inserts += upsertLine(
-                    pomLines,
-                    "version",
-                    dependency.getVersion(),
-                    dependency.getLocation("version"),
-                    dependency.getLocation("artifactId"));
-        }
-        if (dependency.getScope() != null) {
-            inserts += upsertLine(
-                    pomLines,
-                    "scope",
-                    dependency.getScope(),
-                    dependency.getLocation("scope"),
-                    dependency.getLocation("classifier"),
-                    dependency.getLocation("version"),
-                    dependency.getLocation("artifactId"));
-        }
+        inserts += upsertLine(
+                pomLines,
+                "scope",
+                dependency.getScope(),
+                dependency.getLocation("scope"),
+                dependency.getLocation("classifier"),
+                dependency.getLocation("version"),
+                dependency.getLocation("artifactId"));
+        inserts += upsertLine(
+                pomLines,
+                "version",
+                dependency.getVersion(),
+                dependency.getLocation("version"),
+                dependency.getLocation("artifactId"));
 
         return inserts;
     }
@@ -127,10 +123,15 @@ public class PomFileUtil {
             InputLocation... appendLocations) {
 
         if (replaceLocation != null) {
-            int indent = pomLines.get(replaceLocation.getLineNumber() - 1).indexOf("<");
-            pomLines.set(replaceLocation.getLineNumber() - 1, getIndentedLine(tag, value, indent));
-            return 0;
-        } else {
+            if (value == null) {
+                pomLines.remove(replaceLocation.getLineNumber() - 1);
+                return 1;
+            } else {
+                int indent = pomLines.get(replaceLocation.getLineNumber() - 1).indexOf("<");
+                pomLines.set(replaceLocation.getLineNumber() - 1, getIndentedLine(tag, value, indent));
+                return 0;
+            }
+        } else if (value != null) {
             InputLocation appendLocation = Arrays.stream(appendLocations)
                     .filter(Objects::nonNull)
                     .findFirst()
@@ -141,6 +142,7 @@ public class PomFileUtil {
             pomLines.add(appendLocation.getLineNumber(), getIndentedLine(tag, value, indent));
             return 1;
         }
+        return 0;
     }
 
     private String getIndentedLine(String tag, String value, int indent) {
