@@ -23,6 +23,7 @@ import javax.inject.Provider;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -106,27 +107,21 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
                 }
             }
 
-            String lastDefinedVersion = null;
-            String lastDefinedScope = Optional.ofNullable(
-                            foundDuplicates.get(foundDuplicates.size() - 1).getScope())
-                    .orElse("compile");
-
-            for (int i = foundDuplicates.size() - 1; i > 0; i--) {
-                Dependency dep = foundDuplicates.get(i);
-                lastDefinedVersion = dep.getVersion();
-            }
+            Dependency lastDuplicate = foundDuplicates.get(foundDuplicates.size() - 1);
+            String lastDefinedVersion = lastDuplicate.getVersion();
+            String lastDefinedScope =
+                    Optional.ofNullable(lastDuplicate.getScope()).orElse("compile");
 
             Dependency depToRetain = foundDuplicates.remove(0);
             boolean needsUpdate = false;
 
-            if (lastDefinedVersion != null && !lastDefinedVersion.equals(depToRetain.getVersion())) {
+            if (!Objects.equals(lastDefinedVersion, depToRetain.getVersion())) {
                 depToRetain.setVersion(lastDefinedVersion);
                 needsUpdate = true;
             }
 
-            if (!Optional.ofNullable(lastDefinedScope)
-                    .orElse("compile")
-                    .equals(Optional.ofNullable(depToRetain.getScope()).orElse("compile"))) {
+            if (!lastDefinedScope.equals(
+                    Optional.ofNullable(depToRetain.getScope()).orElse("compile"))) {
                 depToRetain.setScope("compile".equals(lastDefinedScope) ? null : lastDefinedScope);
                 needsUpdate = true;
             }
