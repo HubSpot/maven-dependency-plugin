@@ -107,13 +107,13 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
             }
 
             String lastDefinedVersion = null;
-            String lastDefinedScope = null;
+            String lastDefinedScope = Optional.ofNullable(
+                            foundDuplicates.get(foundDuplicates.size() - 1).getScope())
+                    .orElse("compile");
 
             for (int i = foundDuplicates.size() - 1; i > 0; i--) {
                 Dependency dep = foundDuplicates.get(i);
-
                 lastDefinedVersion = dep.getVersion();
-                lastDefinedScope = Optional.ofNullable(dep.getScope()).orElse("compile");
             }
 
             Dependency depToRetain = foundDuplicates.remove(0);
