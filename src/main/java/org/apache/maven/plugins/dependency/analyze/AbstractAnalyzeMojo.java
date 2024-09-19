@@ -559,6 +559,17 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
                 writer.startElement("artifactId");
                 writer.writeText(artifact.getArtifactId());
                 writer.endElement();
+                String dependencyKey = String.format(
+                        "%s:%s:%s:%s",
+                        artifact.getGroupId(),
+                        artifact.getArtifactId(),
+                        artifact.getType(),
+                        (artifact.getClassifier() != null ? ":" : artifact.getClassifier()));
+                if (!managedDependencies.contains(dependencyKey)) {
+                    writer.startElement("version");
+                    writer.writeText(artifact.getBaseVersion());
+                    writer.endElement();
+                }
                 if (!managedDependencies.contains(artifact.getDependencyConflictId())) {
                     writer.startElement("version");
                     writer.writeText(artifact.getBaseVersion());
