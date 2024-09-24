@@ -566,10 +566,10 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
                         artifact.getType(),
                         (artifact.getClassifier() != null ? ":" + artifact.getClassifier() : ""));
                 writer.startElement("key");
-                writer.writeText(artifact.getBaseVersion());
+                writer.writeText(key);
                 writer.endElement();
                 writer.startElement("is in managed dep");
-                writer.writeText(String.valueOf(!managedDependencies.contains(key)));
+                writer.writeText(String.valueOf(managedDependencies));
                 writer.endElement();
                 if (!managedDependencies.contains(key)) {
                     writer.startElement("version");
