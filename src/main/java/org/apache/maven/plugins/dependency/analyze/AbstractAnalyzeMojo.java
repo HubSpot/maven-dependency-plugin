@@ -566,11 +566,7 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
                 writer.startElement("is in managed dep");
                 writer.writeText(String.valueOf(managedDependencies.contains(artifact.getDependencyConflictId())));
                 writer.endElement();
-                writer.startElement("version");
-                writer.writeText(managedDependencies.contains(artifact.getDependencyConflictId()) ? "" : artifact.getBaseVersion());
-                writer.endElement();
-                boolean managed = managedDependencies.stream().anyMatch(artifact.getDependencyConflictId()::equals);
-                if (managed) {
+                if (!managedDependencies.contains(artifact.getDependencyConflictId())) {
                     writer.startElement("version");
                     writer.writeText(artifact.getBaseVersion());
                     writer.endElement();
