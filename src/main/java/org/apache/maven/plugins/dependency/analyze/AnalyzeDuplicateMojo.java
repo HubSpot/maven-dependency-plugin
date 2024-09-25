@@ -20,7 +20,12 @@ package org.apache.maven.plugins.dependency.analyze;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.maven.model.Dependency;
@@ -49,6 +54,9 @@ public class AnalyzeDuplicateMojo extends AbstractMojo {
 
     public static final String MESSAGE_DUPLICATE_DEP_IN_DEPMGMT =
             "List of duplicate dependencies defined in <dependencyManagement/> in your pom.xml:\n";
+
+    public static final String MESSAGE_REDUNDANT_VERSION_IN_DEPENDENCIES =
+            "List of redundant dependency versions defined in <dependencies/> in your pom.xml:\n";
 
     /**
      * Skip plugin execution completely.
@@ -87,6 +95,14 @@ public class AnalyzeDuplicateMojo extends AbstractMojo {
             duplicateDependencies = findDuplicateDependencies(model.getDependencies());
         }
 
+        Set<String> redundantDependencyVersions = Collections.emptySet();
+        if (model.getDependencies() != null
+                && project.getDependencyManagement() != null
+                && project.getDependencyManagement().getDependencies() != null) {
+            redundantDependencyVersions = findRedundantDependencyVersions(
+                    model.getDependencies(), project.getDependencyManagement().getDependencies());
+        }
+
         Set<String> duplicateDependenciesManagement = Collections.emptySet();
         if (model.getDependencyManagement() != null
                 && model.getDependencyManagement().getDependencies() != null) {
@@ -99,17 +115,21 @@ public class AnalyzeDuplicateMojo extends AbstractMojo {
 
             createMessage(duplicateDependencies, sb, MESSAGE_DUPLICATE_DEP_IN_DEPENDENCIES);
             createMessage(duplicateDependenciesManagement, sb, MESSAGE_DUPLICATE_DEP_IN_DEPMGMT);
+            createMessage(redundantDependencyVersions, sb, MESSAGE_REDUNDANT_VERSION_IN_DEPENDENCIES);
 
             if (sb.length() > 0) {
                 getLog().info(sb.toString());
-                handle(duplicateDependencies, duplicateDependenciesManagement);
+                handle(duplicateDependencies, duplicateDependenciesManagement, redundantDependencyVersions);
             } else {
                 getLog().info("No duplicate dependencies found in <dependencies/> or in <dependencyManagement/>");
             }
         }
     }
 
-    protected void handle(Set<String> duplicateDependencies, Set<String> duplicateDependenciesManagement) {
+    protected void handle(
+            Set<String> duplicateDependencies,
+            Set<String> duplicateDependenciesManagement,
+            Set<String> redundantDepdencyVersions) {
         // for subclasses to use
     }
 
@@ -138,5 +158,20 @@ public class AnalyzeDuplicateMojo extends AbstractMojo {
         modelDependencies2.removeIf(new HashSet<>(modelDependencies2)::remove);
         // keep a single instance of each duplicate
         return new LinkedHashSet<>(modelDependencies2);
+    }
+
+    private Set<String> findRedundantDependencyVersions(
+            List<Dependency> modelDependencies, List<Dependency> managedDependencies) {
+        List<String> modelDependencyVersions = modelDependencies.stream()
+                .filter(dep -> dep.getVersion() != null)
+                .map(dep -> dep.getManagementKey() + ":" + dep.getVersion())
+                .collect(Collectors.toList());
+        Set<String> managedDependencyVersions = managedDependencies.stream()
+                .map(dep -> dep.getManagementKey() + ":" + dep.getVersion())
+                .collect(Collectors.toSet());
+
+        modelDependencyVersions.removeIf(v -> !managedDependencyVersions.contains(v));
+
+        return new LinkedHashSet<>(modelDependencyVersions);
     }
 }

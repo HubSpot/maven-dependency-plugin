@@ -23,9 +23,11 @@ import javax.inject.Provider;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.io.ModelReader;
@@ -56,7 +58,10 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
     private Provider<MavenProject> project;
 
     @Override
-    protected void handle(Set<String> duplicateDependencies, Set<String> duplicateDependenciesManagement) {
+    protected void handle(
+            Set<String> duplicateDependencies,
+            Set<String> duplicateDependenciesManagement,
+            Set<String> redundantDependencyVersions) {
         PomFileUtil pomFileUtil = new PomFileUtil(modelReader, project);
 
         List<String> pomLines = pomFileUtil.readPomFile();
@@ -89,6 +94,13 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
 
         for (Dependency dep : PomFileUtil.sortByLineNumberDescending(result.dependenciesToRemove)) {
             pomFileUtil.removeDependency(dep, pomLines);
+        }
+
+        List<Dependency> redundantManagedVersions =
+                findRedundantManagedVersions(pomFileUtil.getDependencies(pomLines), redundantDependencyVersions);
+        if (!redundantManagedVersions.isEmpty()) {
+            PomFileUtil.sortByLineNumberDescending(redundantManagedVersions)
+                    .forEach(dep -> pomFileUtil.updateDependency(dep, pomLines));
         }
 
         pomFileUtil.writePomFile(pomLines);
@@ -136,8 +148,28 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
         return result;
     }
 
-    private static boolean isNotEmptyOrDefaultScope(String scope) {
-        return scope != null && !scope.equals("compile");
+    private static List<Dependency> findRedundantManagedVersions(
+            List<Dependency> dependencies, Set<String> redundantDependencyVersions) {
+        Map<String, String> redundantDependencyVersionsByKey = redundantDependencyVersions.stream()
+                .map(dv -> {
+                    int split = dv.lastIndexOf(":");
+                    return new String[] {dv.substring(0, split), dv.substring(split + 1)};
+                })
+                .collect(Collectors.toMap(dv -> dv[0], dv -> dv[1]));
+
+        List<Dependency> depsToUpdate = new ArrayList<>();
+
+        for (Dependency dep : dependencies) {
+            if (dep.getVersion() != null) {
+                String version = redundantDependencyVersionsByKey.get(dep.getManagementKey());
+                if (version != null && version.equals(dep.getVersion())) {
+                    dep.setVersion(null);
+                    depsToUpdate.add(dep);
+                }
+            }
+        }
+
+        return depsToUpdate;
     }
 
     private static class DuplicateDependenciesResult {
