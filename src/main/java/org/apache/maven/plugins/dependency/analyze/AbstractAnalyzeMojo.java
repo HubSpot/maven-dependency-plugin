@@ -20,7 +20,18 @@ package org.apache.maven.plugins.dependency.analyze;
 
 import java.io.File;
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
@@ -258,13 +269,11 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
      *
      * @since 3.2.1
      */
-    // defaultValue value on @Parameter - not work with Maven 3.2.5
-    // When is set defaultValue always win, and there is no possibility to override by plugin configuration.
-    @Parameter
-    private List<String> ignoredPackagings = Arrays.asList("pom", "ear");
+    @Parameter(defaultValue = "pom,ear")
+    private List<String> ignoredPackagings;
 
     /**
-     * List Excluded classes patterns from analyze. Java regular expression pattern is applied to full class name.
+     * List of class patterns excluded from analyze. Java regular expression pattern is applied to full class name.
      *
      * @since 3.7.0
      */

@@ -21,9 +21,13 @@ package org.apache.maven.plugins.dependency.analyze;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.InputLocation;
@@ -33,6 +37,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.utils.PomFileUtil;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.shared.utils.StringUtils;
 
 /**
  * Analyzes the dependencies of this project and determines which are: used and declared; used and undeclared; unused
