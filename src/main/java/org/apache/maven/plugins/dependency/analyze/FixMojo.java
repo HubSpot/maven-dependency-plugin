@@ -54,6 +54,11 @@ import org.apache.maven.shared.utils.StringUtils;
  */
 @Mojo(name = "fix", requiresDependencyResolution = ResolutionScope.TEST, threadSafe = true)
 public class FixMojo extends AbstractAnalyzeMojo {
+    /**
+     * If true, write updated pom to this path instead of updating in place
+     */
+    @Parameter(property = "mdep.fix.outputFile", required = false)
+    private String outputFile;
 
     // TODO: could not get this working via sisu DI
     // @Component
@@ -64,12 +69,6 @@ public class FixMojo extends AbstractAnalyzeMojo {
 
     @Inject
     private Provider<MavenProject> project;
-
-    /**
-     * If true, write updated pom to this path instead of updating in place
-     */
-    @Parameter(property = "mdep.fix.outputFile", required = false)
-    private String outputFile;
 
     @Override
     protected boolean isFailOnWarning() {
@@ -82,7 +81,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
     }
 
     private PomFileUtil getPomFileUtil() {
-        return new PomFileUtil(modelReader, project);
+        return new PomFileUtil(modelReader, project, outputFile);
     }
 
     @Override

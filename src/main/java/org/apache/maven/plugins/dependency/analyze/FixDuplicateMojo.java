@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.io.ModelReader;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.dependency.utils.PomFileUtil;
 import org.apache.maven.project.MavenProject;
 
@@ -46,6 +47,12 @@ import org.apache.maven.project.MavenProject;
  */
 @Mojo(name = "fix-duplicate", threadSafe = true)
 public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
+
+    /**
+     * If true, write updated pom to this path instead of updating in place
+     */
+    @Parameter(property = "mdep.fix.outputFile", required = false)
+    private String outputFile;
 
     // TODO: could not get this working via sisu DI
     // @Component
@@ -62,7 +69,7 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
             Set<String> duplicateDependencies,
             Set<String> duplicateDependenciesManagement,
             Set<String> redundantDependencyVersions) {
-        PomFileUtil pomFileUtil = new PomFileUtil(modelReader, project);
+        PomFileUtil pomFileUtil = new PomFileUtil(modelReader, project, outputFile);
 
         List<String> pomLines = pomFileUtil.readPomFile();
 
