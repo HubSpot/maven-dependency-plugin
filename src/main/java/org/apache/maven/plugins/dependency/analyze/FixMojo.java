@@ -34,6 +34,7 @@ import org.apache.maven.model.InputLocation;
 import org.apache.maven.model.InputSource;
 import org.apache.maven.model.io.ModelReader;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.utils.PomFileUtil;
 import org.apache.maven.project.MavenProject;
@@ -53,6 +54,11 @@ import org.apache.maven.shared.utils.StringUtils;
  */
 @Mojo(name = "fix", requiresDependencyResolution = ResolutionScope.TEST, threadSafe = true)
 public class FixMojo extends AbstractAnalyzeMojo {
+    /**
+     * If true, write updated pom to this path instead of updating in place
+     */
+    @Parameter(property = "mdep.fix.outputFile", required = false)
+    private String outputFile;
 
     // TODO: could not get this working via sisu DI
     // @Component
@@ -75,7 +81,7 @@ public class FixMojo extends AbstractAnalyzeMojo {
     }
 
     private PomFileUtil getPomFileUtil() {
-        return new PomFileUtil(modelReader, project);
+        return new PomFileUtil(modelReader, project, outputFile);
     }
 
     @Override

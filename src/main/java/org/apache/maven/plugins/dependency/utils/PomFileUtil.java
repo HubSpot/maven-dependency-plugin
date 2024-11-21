@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.InputLocation;
@@ -57,10 +58,13 @@ public class PomFileUtil {
     private final ModelReader modelReader;
     private final Provider<MavenProject> project;
 
+    private final Optional<String> outputFile;
+
     @Inject
-    public PomFileUtil(ModelReader modelReader, Provider<MavenProject> project) {
+    public PomFileUtil(ModelReader modelReader, Provider<MavenProject> project, String outputFile) {
         this.modelReader = modelReader;
         this.project = project;
+        this.outputFile = Optional.ofNullable(outputFile);
     }
 
     public List<Dependency> getDependencies(List<String> pomLines) {
@@ -186,7 +190,7 @@ public class PomFileUtil {
     }
 
     public void writePomFile(List<String> pomLines) {
-        File pomFile = project.get().getFile();
+        File pomFile = outputFile.map(File::new).orElse(project.get().getFile());
         logger.info("Writing updated POM to {}", pomFile);
         PomFileUtil.writeLines(pomFile, pomLines);
     }
