@@ -34,6 +34,7 @@ import org.apache.maven.model.InputLocation;
 import org.apache.maven.model.InputSource;
 import org.apache.maven.model.io.ModelReader;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.utils.PomFileUtil;
 import org.apache.maven.project.MavenProject;
@@ -63,6 +64,12 @@ public class FixMojo extends AbstractAnalyzeMojo {
 
     @Inject
     private Provider<MavenProject> project;
+
+    /**
+     * If true, write updated pom to this path instead of updating in place
+     */
+    @Parameter(property = "mdep.fix.outputFile", required = false)
+    private String outputFile;
 
     @Override
     protected boolean isFailOnWarning() {
