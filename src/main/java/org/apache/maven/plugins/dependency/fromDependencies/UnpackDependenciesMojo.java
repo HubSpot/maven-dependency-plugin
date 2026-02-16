@@ -18,22 +18,29 @@
  */
 package org.apache.maven.plugins.dependency.fromDependencies;
 
+import javax.inject.Inject;
+
 import java.io.File;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.utils.DependencyStatusSets;
 import org.apache.maven.plugins.dependency.utils.DependencyUtil;
+import org.apache.maven.plugins.dependency.utils.ResolverUtil;
 import org.apache.maven.plugins.dependency.utils.UnpackUtil;
 import org.apache.maven.plugins.dependency.utils.filters.MarkerFileFilter;
 import org.apache.maven.plugins.dependency.utils.markers.DefaultFileMarkerHandler;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.shared.artifact.filter.collection.ArtifactsFilter;
 import org.codehaus.plexus.components.io.filemappers.FileMapper;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
  * Goal that unpacks the project dependencies from the repository to a defined location.
@@ -49,9 +56,6 @@ import org.codehaus.plexus.components.io.filemappers.FileMapper;
         threadSafe = true)
 // CHECKSTYLE_ON: LineLength
 public class UnpackDependenciesMojo extends AbstractFromDependenciesMojo {
-
-    @Component
-    private UnpackUtil unpackUtil;
 
     /**
      * A comma separated list of file patterns to include when unpacking the artifact. i.e.
@@ -74,7 +78,7 @@ public class UnpackDependenciesMojo extends AbstractFromDependenciesMojo {
     private String excludes;
 
     /**
-     * ignore to set file permissions when unpacking a dependency
+     * Ignore to set file permissions when unpacking a dependency.
      *
      * @since 2.7
      */
@@ -97,11 +101,26 @@ public class UnpackDependenciesMojo extends AbstractFromDependenciesMojo {
     @Parameter(property = "mdep.unpack.filemappers")
     private FileMapper[] fileMappers;
 
+    private final UnpackUtil unpackUtil;
+
+    @Inject
+    public UnpackDependenciesMojo(
+            MavenSession session,
+            BuildContext buildContext,
+            MavenProject project,
+            ResolverUtil resolverUtil,
+            ProjectBuilder projectBuilder,
+            ArtifactHandlerManager artifactHandlerManager,
+            UnpackUtil unpackUtil) {
+        super(session, buildContext, project, resolverUtil, projectBuilder, artifactHandlerManager);
+        this.unpackUtil = unpackUtil;
+    }
+
     /**
      * Main entry into mojo. This method gets the dependencies and iterates through each one passing it to
      * DependencyUtil.unpackFile().
      *
-     * @throws MojoExecutionException with a message if an error occurs.
+     * @throws MojoExecutionException with a message if an error occurs
      * @see #getDependencySets(boolean)
      */
     @Override
@@ -147,35 +166,35 @@ public class UnpackDependenciesMojo extends AbstractFromDependenciesMojo {
     }
 
     /**
-     * @return Returns a comma separated list of excluded items
+     * @return returns a comma separated list of excluded items
      */
     public String getExcludes() {
         return DependencyUtil.cleanToBeTokenizedString(this.excludes);
     }
 
     /**
-     * @param excludes A comma separated list of items to exclude i.e. <code>**\/*.xml, **\/*.properties</code>
+     * @param excludes a comma separated list of items to exclude i.e. <code>**\/*.xml, **\/*.properties</code>
      */
     public void setExcludes(String excludes) {
         this.excludes = excludes;
     }
 
     /**
-     * @return Returns a comma separated list of included items
+     * @return returns a comma separated list of included items
      */
     public String getIncludes() {
         return DependencyUtil.cleanToBeTokenizedString(this.includes);
     }
 
     /**
-     * @param includes A comma separated list of items to include i.e. <code>**\/*.xml, **\/*.properties</code>
+     * @param includes a comma separated list of items to include i.e. <code>**\/*.xml, **\/*.properties</code>
      */
     public void setIncludes(String includes) {
         this.includes = includes;
     }
 
     /**
-     * @param encoding The encoding to set.
+     * @param encoding the encoding to set
      * @since 3.0
      */
     public void setEncoding(String encoding) {
@@ -183,7 +202,7 @@ public class UnpackDependenciesMojo extends AbstractFromDependenciesMojo {
     }
 
     /**
-     * @return Returns the encoding.
+     * @return returns the encoding
      * @since 3.0
      */
     public String getEncoding() {
@@ -192,8 +211,7 @@ public class UnpackDependenciesMojo extends AbstractFromDependenciesMojo {
 
     /**
      * @return {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no rewriting shall
-     *         happen.
-     *
+     *         happen
      * @since 3.1.2
      */
     public FileMapper[] getFileMappers() {
@@ -202,8 +220,7 @@ public class UnpackDependenciesMojo extends AbstractFromDependenciesMojo {
 
     /**
      * @param fileMappers {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no
-     *                   rewriting shall happen.
-     *
+     *                   rewriting shall happen
      * @since 3.1.2
      */
     public void setFileMappers(FileMapper[] fileMappers) {

@@ -19,7 +19,6 @@
 package org.apache.maven.plugins.dependency.utils;
 
 import java.io.File;
-import java.io.IOException;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
@@ -54,7 +53,7 @@ class TestDependencyUtil {
     Artifact sources;
 
     @BeforeEach
-    protected void setUp() {
+    void setUp() {
 
         ArtifactHandler ah = new DefaultArtifactHandlerStub("jar", null);
         VersionRange vr = VersionRange.createFromVersion("1.1");
@@ -75,7 +74,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testDirectoryName() {
+    void directoryName() {
         File folder = new File("target/a");
         final Artifact artifact = release;
         File name =
@@ -148,7 +147,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testDirectoryName2() {
+    void directoryName2() {
         File folder = new File("target/a");
         final Artifact artifact = snap;
         File name =
@@ -201,7 +200,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testDirectoryNameSources() {
+    void directoryNameSources() {
         File folder = new File("target/a");
         File name = DependencyUtil.getFormattedOutputDirectory(false, false, true, false, true, false, folder, sources);
         String expectedResult = folder.getAbsolutePath() + File.separatorChar + "two-sources";
@@ -221,7 +220,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testFileName() {
+    void fileName() {
         Artifact artifact = release;
 
         String name = DependencyUtil.getFormattedFileName(artifact, false);
@@ -233,7 +232,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testFileNameUseBaseVersion() {
+    void fileNameUseBaseVersion() {
         Artifact artifact = snapResolvedVersion;
 
         String name = DependencyUtil.getFormattedFileName(artifact, false, false, true);
@@ -245,7 +244,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testTestJar() {
+    void testJar() {
         ArtifactHandler ah = new DefaultArtifactHandlerStub("test-jar", null);
         VersionRange vr = VersionRange.createFromVersion("1.1-SNAPSHOT");
         Artifact artifact =
@@ -257,7 +256,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testFileNameClassifier() {
+    void fileNameClassifier() {
         ArtifactHandler ah = new DefaultArtifactHandlerStub("jar", "sources");
         VersionRange vr = VersionRange.createFromVersion("1.1-SNAPSHOT");
         Artifact artifact =
@@ -283,7 +282,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testFileNameClassifierWithFile() {
+    void fileNameClassifierWithFile() {
         // specifically testing the default operation that getFormattedFileName
         // returns
         // the actual name of the file if available unless remove version is
@@ -321,27 +320,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void testTokenizer() {
-        String[] tokens = DependencyUtil.tokenizer(" alpha,bravo, charlie , delta kappa, theta");
-        String[] expected = new String[] {"alpha", "bravo", "charlie", "delta kappa", "theta"};
-        // easier to see in the JUnit reports
-        assertEquals(String.join(", ", expected), String.join(", ", tokens));
-        assertEquals(expected.length, tokens.length);
-
-        tokens = DependencyUtil.tokenizer(" \r\n a, \t \n \r b \t \n \r");
-        assertEquals(2, tokens.length);
-        assertEquals("a", tokens[0]);
-        assertEquals("b", tokens[1]);
-
-        tokens = DependencyUtil.tokenizer(null);
-        assertEquals(0, tokens.length);
-
-        tokens = DependencyUtil.tokenizer("  ");
-        assertEquals(0, tokens.length);
-    }
-
-    @Test
-    void outputFileShouldBeOverridden() throws IOException {
+    void outputFileShouldBeOverridden() throws Exception {
         File file = new File(temDir, "file1.out");
         assertThat(file).doesNotExist();
 
@@ -353,7 +332,7 @@ class TestDependencyUtil {
     }
 
     @Test
-    void outputFileShouldBeAppended() throws IOException {
+    void outputFileShouldBeAppended() throws Exception {
         File file = new File(temDir, "file2.out");
         assertThat(file).doesNotExist();
 

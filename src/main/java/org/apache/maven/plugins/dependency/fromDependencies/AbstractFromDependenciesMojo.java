@@ -20,7 +20,13 @@ package org.apache.maven.plugins.dependency.fromDependencies;
 
 import java.io.File;
 
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.dependency.utils.ResolverUtil;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuilder;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
  * Abstract Parent class used by mojos that get Artifact information from the project dependencies.
@@ -37,13 +43,13 @@ public abstract class AbstractFromDependenciesMojo extends AbstractDependencyFil
     protected File outputDirectory;
 
     /**
-     * Strip artifact version during copy
+     * Strip artifact version during copy.
      */
     @Parameter(property = "mdep.stripVersion", defaultValue = "false")
     protected boolean stripVersion = false;
 
     /**
-     * Strip artifact type during copy
+     * Strip artifact type during copy.
      *
      * @since 3.4.0
      */
@@ -51,7 +57,7 @@ public abstract class AbstractFromDependenciesMojo extends AbstractDependencyFil
     protected boolean stripType = false;
 
     /**
-     * Strip artifact classifier during copy
+     * Strip artifact classifier during copy.
      */
     @Parameter(property = "mdep.stripClassifier", defaultValue = "false")
     protected boolean stripClassifier = false;
@@ -75,7 +81,7 @@ public abstract class AbstractFromDependenciesMojo extends AbstractDependencyFil
 
     /**
      * Place each type of file in a separate subdirectory. (example /outputDirectory/runtime /outputDirectory/provided
-     * etc)
+     * etc.)
      *
      * @since 2.2
      */
@@ -83,7 +89,7 @@ public abstract class AbstractFromDependenciesMojo extends AbstractDependencyFil
     protected boolean useSubDirectoryPerScope;
 
     /**
-     * Place each type of file in a separate subdirectory. (example /outputDirectory/jars /outputDirectory/wars etc)
+     * Place each type of file in a separate subdirectory. (example /outputDirectory/jars /outputDirectory/wars etc.)
      *
      * @since 2.0-alpha-1
      */
@@ -106,57 +112,67 @@ public abstract class AbstractFromDependenciesMojo extends AbstractDependencyFil
     @Parameter(property = "mdep.failOnMissingClassifierArtifact", defaultValue = "false")
     protected boolean failOnMissingClassifierArtifact;
 
+    protected AbstractFromDependenciesMojo(
+            MavenSession session,
+            BuildContext buildContext,
+            MavenProject project,
+            ResolverUtil resolverUtil,
+            ProjectBuilder projectBuilder,
+            ArtifactHandlerManager artifactHandlerManager) {
+        super(session, buildContext, project, resolverUtil, projectBuilder, artifactHandlerManager);
+    }
+
     /**
-     * @return Returns the outputDirectory.
+     * @return returns the output directory
      */
     public File getOutputDirectory() {
         return this.outputDirectory;
     }
 
     /**
-     * @param theOutputDirectory The outputDirectory to set.
+     * @param theOutputDirectory the outputDirectory to set
      */
     public void setOutputDirectory(File theOutputDirectory) {
         this.outputDirectory = theOutputDirectory;
     }
 
     /**
-     * @return Returns the useSubDirectoryPerArtifact.
+     * @return returns the useSubDirectoryPerArtifact
      */
     public boolean isUseSubDirectoryPerArtifact() {
         return this.useSubDirectoryPerArtifact;
     }
 
     /**
-     * @param theUseSubDirectoryPerArtifact The useSubDirectoryPerArtifact to set.
+     * @param theUseSubDirectoryPerArtifact the useSubDirectoryPerArtifact to set
      */
     public void setUseSubDirectoryPerArtifact(boolean theUseSubDirectoryPerArtifact) {
         this.useSubDirectoryPerArtifact = theUseSubDirectoryPerArtifact;
     }
 
     /**
-     * @return Returns the useSubDirectoryPerScope
+     * @return returns the useSubDirectoryPerScope
      */
     public boolean isUseSubDirectoryPerScope() {
         return this.useSubDirectoryPerScope;
     }
 
     /**
-     * @param theUseSubDirectoryPerScope The useSubDirectoryPerScope to set.
+     * @param theUseSubDirectoryPerScope the useSubDirectoryPerScope to set
      */
     public void setUseSubDirectoryPerScope(boolean theUseSubDirectoryPerScope) {
         this.useSubDirectoryPerScope = theUseSubDirectoryPerScope;
     }
 
     /**
-     * @return Returns the useSubDirectoryPerType.
+     * @return returns the useSubDirectoryPerType
      */
     public boolean isUseSubDirectoryPerType() {
         return this.useSubDirectoryPerType;
     }
 
     /**
-     * @param theUseSubDirectoryPerType The useSubDirectoryPerType to set.
+     * @param theUseSubDirectoryPerType the useSubDirectoryPerType to set
      */
     public void setUseSubDirectoryPerType(boolean theUseSubDirectoryPerType) {
         this.useSubDirectoryPerType = theUseSubDirectoryPerType;
@@ -212,7 +228,7 @@ public abstract class AbstractFromDependenciesMojo extends AbstractDependencyFil
     }
 
     /**
-     * @param useRepositoryLayout - true if dependencies must be planted in a repository layout
+     * @param useRepositoryLayout true if dependencies must be planted in a repository layout
      */
     public void setUseRepositoryLayout(boolean useRepositoryLayout) {
         this.useRepositoryLayout = useRepositoryLayout;

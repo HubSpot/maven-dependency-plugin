@@ -19,12 +19,14 @@
 package org.apache.maven.plugins.dependency.utils;
 
 import org.apache.maven.plugin.logging.Log;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-public class TestSilentLog {
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+class TestSilentLog {
 
     @Test
-    public void testLog() {
+    void testLog() {
         Log log = new DependencySilentLog();
         String text = "Text";
         Throwable e = new RuntimeException();
@@ -40,9 +42,9 @@ public class TestSilentLog {
         log.error(text);
         log.error(text, e);
         log.error(e);
-        log.isDebugEnabled();
-        log.isErrorEnabled();
-        log.isWarnEnabled();
-        log.isInfoEnabled();
+        assertFalse(log.isDebugEnabled());
+        assertFalse(log.isErrorEnabled());
+        assertFalse(log.isWarnEnabled());
+        assertFalse(log.isInfoEnabled());
     }
 }

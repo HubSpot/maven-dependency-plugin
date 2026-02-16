@@ -20,8 +20,14 @@ package org.apache.maven.plugins.dependency.resolvers;
 
 import java.io.File;
 
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.dependency.fromDependencies.AbstractDependencyFilterMojo;
+import org.apache.maven.plugins.dependency.utils.ResolverUtil;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuilder;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
  * @author <a href="mailto:brianf@apache.org">Brian Fox</a>
@@ -45,11 +51,13 @@ public abstract class AbstractResolveMojo extends AbstractDependencyFilterMojo {
     @Parameter(property = "appendOutput", defaultValue = "false")
     protected boolean appendOutput;
 
-    /**
-     * Don't resolve plugins that are in the current reactor.
-     *
-     * @since 2.7
-     */
-    @Parameter(property = "excludeReactor", defaultValue = "true")
-    protected boolean excludeReactor;
+    protected AbstractResolveMojo(
+            MavenSession session,
+            BuildContext buildContext,
+            MavenProject project,
+            ResolverUtil resolverUtil,
+            ProjectBuilder projectBuilder,
+            ArtifactHandlerManager artifactHandlerManager) {
+        super(session, buildContext, project, resolverUtil, projectBuilder, artifactHandlerManager);
+    }
 }

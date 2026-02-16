@@ -18,17 +18,20 @@
  */
 package org.apache.maven.plugins.dependency.fromDependencies;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.maven.api.plugin.testing.InjectMojo;
+import org.apache.maven.api.plugin.testing.MojoParameter;
+import org.apache.maven.api.plugin.testing.MojoTest;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadata;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
@@ -40,57 +43,55 @@ import org.apache.maven.artifact.repository.metadata.Snapshot;
 import org.apache.maven.artifact.repository.metadata.SnapshotArtifactRepositoryMetadata;
 import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.artifact.versioning.VersionRange;
+import org.apache.maven.bridge.MavenRepositorySystem;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.LegacySupport;
-import org.apache.maven.plugins.dependency.AbstractDependencyMojoTestCase;
-import org.apache.maven.plugins.dependency.testUtils.stubs.DependencyProjectStub;
+import org.apache.maven.plugins.dependency.testUtils.DependencyArtifactStubFactory;
 import org.apache.maven.plugins.dependency.utils.DependencyUtil;
-import org.apache.maven.plugins.dependency.utils.ResolverUtil;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
-import org.eclipse.aether.RepositorySystem;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
-    private CopyDependenciesMojo mojo;
+@MojoTest(realRepositorySession = true)
+class TestCopyDependenciesMojo2 {
 
-    protected void setUp() throws Exception {
-        // required for mojo lookups to work
-        super.setUp("copy-dependencies", true);
-        MavenProject project = new DependencyProjectStub();
-        getContainer().addComponent(project, MavenProject.class.getName());
+    @TempDir
+    private File tempDir;
 
-        MavenSession session = newMavenSession(project);
-        getContainer().addComponent(session, MavenSession.class.getName());
+    private DependencyArtifactStubFactory stubFactory;
 
-        RepositorySystem repositorySystem = lookup(RepositorySystem.class);
-        ResolverUtil resolverUtil = new ResolverUtil(repositorySystem, () -> session);
-        getContainer().addComponent(resolverUtil, ResolverUtil.class.getName());
+    @Inject
+    private MavenSession session;
 
-        File testPom = new File(getBasedir(), "target/test-classes/unit/copy-dependencies-test/plugin-config.xml");
-        mojo = (CopyDependenciesMojo) lookupMojo("copy-dependencies", testPom);
-        mojo.outputDirectory = new File(this.testDir, "outputDirectory");
-        // mojo.silent = true;
+    @Inject
+    private MavenProject project;
 
-        assertNotNull(mojo);
-        assertNotNull(mojo.getProject());
+    @Inject
+    private MavenRepositorySystem repositorySystem;
 
-        Set<Artifact> artifacts = this.stubFactory.getScopedArtifacts();
-        Set<Artifact> directArtifacts = this.stubFactory.getReleaseAndSnapshotArtifacts();
+    @BeforeEach
+    void setUp() throws Exception {
+        stubFactory = new DependencyArtifactStubFactory(tempDir, true, false);
+
+        Set<Artifact> artifacts = stubFactory.getScopedArtifacts();
+        Set<Artifact> directArtifacts = stubFactory.getReleaseAndSnapshotArtifacts();
         artifacts.addAll(directArtifacts);
-
         project.setArtifacts(artifacts);
-        project.setDependencyArtifacts(directArtifacts);
-        mojo.markersDirectory = new File(this.testDir, "markers");
 
-        LegacySupport legacySupport = lookup(LegacySupport.class);
-        legacySupport.setSession(session);
-        installLocalRepository(legacySupport);
+        project.getBuild().setDirectory(new File(tempDir, "target").getAbsolutePath());
     }
 
-    public void testCopyDependenciesMojoIncludeCompileScope() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "includeScope", value = "compile")
+    void testCopyDependenciesMojoIncludeCompileScope(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getScopedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.includeScope = "compile";
 
         mojo.execute();
 
@@ -105,10 +106,11 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testCopyDependenciesMojoIncludeTestScope() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "includeScope", value = "test")
+    void testCopyDependenciesMojoIncludeTestScope(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getScopedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.includeScope = "test";
 
         mojo.execute();
 
@@ -123,10 +125,11 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testCopyDependenciesMojoIncludeRuntimeScope() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "includeScope", value = "runtime")
+    void testCopyDependenciesMojoIncludeRuntimeScope(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getScopedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.includeScope = "runtime";
 
         mojo.execute();
 
@@ -141,10 +144,11 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testCopyDependenciesMojoIncludeprovidedScope() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "includeScope", value = "provided")
+    void testCopyDependenciesMojoIncludeprovidedScope(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getScopedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.includeScope = "provided";
 
         mojo.execute();
 
@@ -157,10 +161,11 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testCopyDependenciesMojoIncludesystemScope() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "includeScope", value = "system")
+    void testCopyDependenciesMojoIncludesystemScope(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getScopedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.includeScope = "system";
 
         mojo.execute();
 
@@ -173,8 +178,10 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testSubPerArtifact() throws Exception {
-        mojo.useSubDirectoryPerArtifact = true;
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "useSubDirectoryPerArtifact", value = "true")
+    void testSubPerArtifact(CopyDependenciesMojo mojo) throws Exception {
 
         mojo.execute();
 
@@ -188,11 +195,12 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testSubPerArtifactAndType() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "useSubDirectoryPerArtifact", value = "true")
+    @MojoParameter(name = "useSubDirectoryPerType", value = "true")
+    void testSubPerArtifactAndType(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getTypedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.useSubDirectoryPerArtifact = true;
-        mojo.useSubDirectoryPerType = true;
 
         mojo.execute();
 
@@ -206,11 +214,12 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testSubPerArtifactAndScope() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "useSubDirectoryPerArtifact", value = "true")
+    @MojoParameter(name = "useSubDirectoryPerScope", value = "true")
+    void testSubPerArtifactAndScope(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getTypedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.useSubDirectoryPerArtifact = true;
-        mojo.useSubDirectoryPerScope = true;
 
         mojo.execute();
 
@@ -224,7 +233,14 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testRepositoryLayout() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    void testRepositoryLayout(CopyDependenciesMojo mojo) throws Exception {
+
+        ProjectBuildingRequest pbr = new DefaultProjectBuildingRequest();
+        pbr.setRepositorySession(session.getRepositorySession());
+        when(session.getProjectBuildingRequest()).thenReturn(pbr);
+
         String baseVersion = "2.0-SNAPSHOT";
         String groupId = "testGroupId";
         String artifactId = "expanded-snapshot";
@@ -233,17 +249,13 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
                 createExpandedVersionArtifact(baseVersion, groupId, artifactId, "compile", "jar", null);
 
         mojo.getProject().getArtifacts().add(expandedSnapshot);
-        mojo.getProject().getDependencyArtifacts().add(expandedSnapshot);
 
         Artifact pomExpandedSnapshot =
                 createExpandedVersionArtifact(baseVersion, groupId, artifactId, "compile", "pom", null);
         mojo.getProject().getArtifacts().add(pomExpandedSnapshot);
-        mojo.getProject().getDependencyArtifacts().add(pomExpandedSnapshot);
 
         mojo.useRepositoryLayout = true;
         mojo.execute();
-
-        ArtifactFactory artifactFactory = lookup(ArtifactFactory.class);
 
         File outputDirectory = mojo.outputDirectory;
         ArtifactRepository targetRepository = new MavenArtifactRepository(
@@ -259,9 +271,8 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
 
         for (Artifact artifact : artifacts) {
             assertArtifactExists(artifact, targetRepository);
-
             if (!artifact.getBaseVersion().equals(artifact.getVersion())) {
-                Artifact baseArtifact = artifactFactory.createArtifact(
+                Artifact baseArtifact = repositorySystem.createArtifact(
                         artifact.getGroupId(),
                         artifact.getArtifactId(),
                         artifact.getBaseVersion(),
@@ -299,9 +310,9 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         File file = new File(targetRepository.getBasedir(), pathOf);
 
         Path targetPath = Paths.get(file.getParent());
-        assertTrue("Target path doesn't exist: " + targetPath, Files.isDirectory(targetPath));
+        assertTrue(Files.isDirectory(targetPath), "Target path doesn't exist: " + targetPath);
 
-        assertTrue("File doesn't exist: " + file.getAbsolutePath(), file.exists());
+        assertTrue(file.exists(), "File doesn't exist: " + file.getAbsolutePath());
 
         Collection<ArtifactMetadata> metas = artifact.getMetadataList();
         for (ArtifactMetadata meta : metas) {
@@ -311,9 +322,11 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testSubPerArtifactRemoveVersion() throws Exception {
-        mojo.useSubDirectoryPerArtifact = true;
-        mojo.stripVersion = true;
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "useSubDirectoryPerArtifact", value = "true")
+    @MojoParameter(name = "stripVersion", value = "true")
+    void testSubPerArtifactRemoveVersion(CopyDependenciesMojo mojo) throws Exception {
 
         mojo.execute();
 
@@ -327,12 +340,13 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testSubPerArtifactAndTypeRemoveVersion() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "useSubDirectoryPerArtifact", value = "true")
+    @MojoParameter(name = "useSubDirectoryPerType", value = "true")
+    @MojoParameter(name = "stripVersion", value = "true")
+    void testSubPerArtifactAndTypeRemoveVersion(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getTypedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.useSubDirectoryPerArtifact = true;
-        mojo.useSubDirectoryPerType = true;
-        mojo.stripVersion = true;
 
         mojo.execute();
 
@@ -346,9 +360,11 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testSubPerArtifactRemoveType() throws Exception {
-        mojo.useSubDirectoryPerArtifact = true;
-        mojo.stripType = true;
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "useSubDirectoryPerArtifact", value = "true")
+    @MojoParameter(name = "stripType", value = "true")
+    void testSubPerArtifactRemoveType(CopyDependenciesMojo mojo) throws Exception {
 
         mojo.execute();
 
@@ -362,12 +378,13 @@ public class TestCopyDependenciesMojo2 extends AbstractDependencyMojoTestCase {
         }
     }
 
-    public void testSubPerArtifactAndTypeRemoveType() throws Exception {
+    @Test
+    @InjectMojo(goal = "copy-dependencies")
+    @MojoParameter(name = "useSubDirectoryPerArtifact", value = "true")
+    @MojoParameter(name = "useSubDirectoryPerType", value = "true")
+    @MojoParameter(name = "stripType", value = "true")
+    void testSubPerArtifactAndTypeRemoveType(CopyDependenciesMojo mojo) throws Exception {
         mojo.getProject().setArtifacts(stubFactory.getTypedArtifacts());
-        mojo.getProject().setDependencyArtifacts(new HashSet<>());
-        mojo.useSubDirectoryPerArtifact = true;
-        mojo.useSubDirectoryPerType = true;
-        mojo.stripType = true;
 
         mojo.execute();
 

@@ -18,71 +18,54 @@
  */
 package org.apache.maven.plugins.dependency.utils.translators;
 
-import java.util.HashMap;
+import javax.inject.Inject;
+
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import org.apache.maven.api.plugin.testing.MojoTest;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.factory.ArtifactFactory;
-import org.apache.maven.artifact.factory.DefaultArtifactFactory;
 import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
-import org.apache.maven.artifact.handler.manager.DefaultArtifactHandlerManager;
-import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.LegacySupport;
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.testing.SilentLog;
-import org.apache.maven.plugin.testing.stubs.MavenProjectStub;
-import org.apache.maven.plugin.testing.stubs.StubArtifactRepository;
-import org.apache.maven.plugins.dependency.AbstractDependencyMojoTestCase;
 import org.apache.maven.plugins.dependency.testUtils.DependencyArtifactStubFactory;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author brianf
  */
-public class TestClassifierTypeTranslator extends AbstractDependencyMojoTestCase {
+@MojoTest
+class TestClassifierTypeTranslator {
+
     Set<Artifact> artifacts = new HashSet<>();
 
-    ArtifactFactory artifactFactory;
+    @Inject
+    private Log log;
 
-    ArtifactRepository artifactRepository;
-
-    Log log = new SilentLog();
-
+    @Inject
     private ArtifactHandlerManager artifactHandlerManager;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp("classifiertype-translator", false);
-
-        artifactHandlerManager = new DefaultArtifactHandlerManager();
-        this.setVariableValueToObject(artifactHandlerManager, "artifactHandlers", new HashMap<>());
-
-        artifactFactory = new DefaultArtifactFactory();
-        this.setVariableValueToObject(artifactFactory, "artifactHandlerManager", artifactHandlerManager);
-
-        artifactRepository = new StubArtifactRepository(null);
-
+    @BeforeEach
+    void setUp() throws Exception {
         DependencyArtifactStubFactory factory = new DependencyArtifactStubFactory(null, false);
         artifacts = factory.getMixedArtifacts();
-
-        LegacySupport legacySupport = lookup(LegacySupport.class);
-        MavenSession session = newMavenSession(new MavenProjectStub());
-        legacySupport.setSession(session);
-
-        installLocalRepository(legacySupport);
     }
 
-    public void testNullClassifier() {
+    @Test
+    void testNullClassifier() {
         doTestNullEmptyClassifier(null);
     }
 
-    public void testEmptyClassifier() {
+    @Test
+    void testEmptyClassifier() {
         doTestNullEmptyClassifier("");
     }
 
-    public void doTestNullEmptyClassifier(String classifier) {
+    private void doTestNullEmptyClassifier(String classifier) {
         String type = "zip";
 
         ArtifactTranslator at = new ClassifierTypeTranslator(artifactHandlerManager, classifier, type);
@@ -108,15 +91,17 @@ public class TestClassifierTypeTranslator extends AbstractDependencyMojoTestCase
         }
     }
 
-    public void testNullType() {
+    @Test
+    void testNullType() {
         doTestNullEmptyType(null);
     }
 
-    public void testEmptyType() {
+    @Test
+    void testEmptyType() {
         doTestNullEmptyType("");
     }
 
-    public void doTestNullEmptyType(String type) {
+    private void doTestNullEmptyType(String type) {
         String classifier = "jdk5";
 
         ArtifactTranslator at = new ClassifierTypeTranslator(artifactHandlerManager, classifier, type);
@@ -142,7 +127,8 @@ public class TestClassifierTypeTranslator extends AbstractDependencyMojoTestCase
         }
     }
 
-    public void testClassifierAndType() {
+    @Test
+    void testClassifierAndType() {
         String classifier = "jdk14";
         String type = "sources";
         ArtifactTranslator at = new ClassifierTypeTranslator(artifactHandlerManager, classifier, type);
@@ -166,7 +152,8 @@ public class TestClassifierTypeTranslator extends AbstractDependencyMojoTestCase
         }
     }
 
-    public void testGetterSetter() {
+    @Test
+    void testGetterSetter() {
         String classifier = "class";
         String type = "type";
         ClassifierTypeTranslator at = new ClassifierTypeTranslator(artifactHandlerManager, classifier, type);

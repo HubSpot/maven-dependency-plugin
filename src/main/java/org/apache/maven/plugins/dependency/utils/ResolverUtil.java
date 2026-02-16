@@ -25,11 +25,22 @@ import javax.inject.Singleton;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.maven.RepositoryUtils;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.ModelBase;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginContainer;
+import org.apache.maven.model.ReportPlugin;
+import org.apache.maven.model.Reporting;
+import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
@@ -87,12 +98,12 @@ public class ResolverUtil {
     }
 
     /**
-     * Resolve given artifact
+     * Resolve given artifact.
      *
      * @param artifact     an artifact to resolve
      * @param repositories remote repositories list
      * @return resolved artifact
-     * @throws ArtifactResolutionException If the artifact could not be resolved.
+     * @throws ArtifactResolutionException if the artifact could not be resolved
      */
     public Artifact resolveArtifact(Artifact artifact, List<RemoteRepository> repositories)
             throws ArtifactResolutionException {
@@ -103,24 +114,120 @@ public class ResolverUtil {
     }
 
     /**
+     * Resolve given plugin artifact.
+     *
+     * @param plugin a plugin to resolve
+     * @return resolved artifact
+     * @throws ArtifactResolutionException if the artifact could not be resolved
+     */
+    public Artifact resolvePlugin(Plugin plugin) throws ArtifactResolutionException {
+        MavenSession session = mavenSessionProvider.get();
+        Artifact artifact = toArtifact(plugin);
+        return resolveArtifact(artifact, session.getCurrentProject().getRemotePluginRepositories());
+    }
+
+    /**
      * Resolve transitive dependencies for artifact.
      *
      * @param artifact     an artifact to resolve
      * @param repositories remote repositories list
      * @return list of transitive dependencies for artifact
-     * @throws DependencyResolutionException If the dependency tree could not be built or any dependency artifact could
-     *                                       not be resolved.
+     * @throws DependencyResolutionException if the dependency tree could not be built or any dependency artifact could
+     *                                       not be resolved
      */
     public List<Artifact> resolveDependencies(Artifact artifact, List<RemoteRepository> repositories)
             throws DependencyResolutionException {
+        return resolveDependencies(artifact, null, repositories);
+    }
+
+    /**
+     * Resolve transitive dependencies for artifact.
+     *
+     * @param artifact an artifact to resolve
+     * @param dependencies a list of additional dependencies for artifact
+     * @param repositories remote repositories list
+     * @return list of transitive dependencies for artifact
+     * @throws DependencyResolutionException if the dependency tree could not be built or any dependency artifact could
+     *                                       not be resolved
+     */
+    public List<Artifact> resolveDependencies(
+            Artifact artifact, List<Dependency> dependencies, List<RemoteRepository> repositories)
+            throws DependencyResolutionException {
         MavenSession session = mavenSessionProvider.get();
 
-        CollectRequest collectRequest = new CollectRequest(new Dependency(artifact, null), repositories);
+        CollectRequest collectRequest = new CollectRequest(new Dependency(artifact, null), dependencies, repositories);
+        DependencyRequest request = new DependencyRequest(collectRequest, null);
+
+        DependencyResult result = repositorySystem.resolveDependencies(session.getRepositorySession(), request);
+        return result.getArtifactResults().stream()
+                .map(ArtifactResult::getArtifact)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Resolve transitive dependencies for artifact with managed dependencies.
+     *
+     * @param rootArtifact a root artifact to resolve
+     * @param dependencies a list of dependencies for artifact
+     * @param managedDependencies  a list of managed dependencies for artifact
+     * @param remoteProjectRepositories remote repositories list
+     * @return Resolved dependencies
+     * @throws DependencyResolutionException if the dependency tree could not be built or any dependency artifact could
+     *                                       not be resolved
+     */
+    public List<Artifact> resolveDependenciesForArtifact(
+            Artifact rootArtifact,
+            List<Dependency> dependencies,
+            List<Dependency> managedDependencies,
+            List<RemoteRepository> remoteProjectRepositories)
+            throws DependencyResolutionException {
+        MavenSession session = mavenSessionProvider.get();
+
+        CollectRequest collectRequest =
+                new CollectRequest(dependencies, managedDependencies, remoteProjectRepositories);
+        collectRequest.setRootArtifact(rootArtifact);
         DependencyRequest request = new DependencyRequest(collectRequest, null);
         DependencyResult result = repositorySystem.resolveDependencies(session.getRepositorySession(), request);
         return result.getArtifactResults().stream()
                 .map(ArtifactResult::getArtifact)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Resolve transitive dependencies for plugin.
+     *
+     * @param plugin a plugin to resolve
+     * @param dependencyFilter a filter to apply to plugin dependencies
+     * @return list of transitive dependencies for plugin
+     * @throws DependencyResolutionException if the dependency tree could not be built or any dependency artifact could
+     *                                       not be resolved
+     */
+    public List<Artifact> resolveDependencies(
+            final Plugin plugin, Predicate<org.apache.maven.model.Dependency> dependencyFilter)
+            throws DependencyResolutionException {
+
+        MavenSession session = mavenSessionProvider.get();
+
+        org.eclipse.aether.artifact.Artifact artifact = toArtifact(plugin);
+        List<Dependency> pluginDependencies = plugin.getDependencies().stream()
+                .filter(dependencyFilter)
+                .map(d -> RepositoryUtils.toDependency(
+                        d, session.getRepositorySession().getArtifactTypeRegistry()))
+                .collect(Collectors.toList());
+
+        return resolveDependencies(
+                artifact, pluginDependencies, session.getCurrentProject().getRemoteProjectRepositories());
+    }
+
+    private Artifact toArtifact(Plugin plugin) {
+        MavenSession session = mavenSessionProvider.get();
+        return new DefaultArtifact(
+                plugin.getGroupId(),
+                plugin.getArtifactId(),
+                null,
+                "jar",
+                plugin.getVersion(),
+                session.getRepositorySession().getArtifactTypeRegistry().get("maven-plugin"));
     }
 
     /**
@@ -232,5 +339,58 @@ public class ResolverUtil {
         ArtifactTypeRegistry artifactTypeRegistry =
                 mavenSessionProvider.get().getRepositorySession().getArtifactTypeRegistry();
         return artifactTypeRegistry.get(packaging != null ? packaging : "jar");
+    }
+
+    /**
+     * Retrieve all plugins used in project either in build or reporting section.
+     *
+     * @param project a maven project
+     * @return a collection of plugins
+     */
+    public Collection<Plugin> getProjectPlugins(MavenProject project) {
+        List<Plugin> reportPlugins = Optional.ofNullable(project.getModel())
+                .map(ModelBase::getReporting)
+                .map(Reporting::getPlugins)
+                .orElse(Collections.emptyList())
+                .stream()
+                .map(p -> toPlugin(p, project))
+                .collect(Collectors.toList());
+
+        List<Plugin> projectPlugins = project.getBuild().getPlugins();
+
+        LinkedHashSet<Plugin> result = new LinkedHashSet<>(reportPlugins.size() + projectPlugins.size());
+        result.addAll(reportPlugins);
+        result.addAll(projectPlugins);
+        return result;
+    }
+
+    private Plugin toPlugin(ReportPlugin reportPlugin, MavenProject project) {
+        // first look in the pluginManagement section
+        Plugin plugin = Optional.ofNullable(project.getBuild().getPluginManagement())
+                .map(PluginContainer::getPluginsAsMap)
+                .orElseGet(Collections::emptyMap)
+                .get(reportPlugin.getKey());
+
+        if (plugin == null) {
+            plugin = project.getBuild().getPluginsAsMap().get(reportPlugin.getKey());
+        }
+
+        if (plugin == null) {
+            plugin = new Plugin();
+            plugin.setGroupId(reportPlugin.getGroupId());
+            plugin.setArtifactId(reportPlugin.getArtifactId());
+            plugin.setVersion(reportPlugin.getVersion());
+        } else {
+            // override the version with the one from the report plugin if specified
+            if (reportPlugin.getVersion() != null) {
+                plugin.setVersion(reportPlugin.getVersion());
+            }
+        }
+
+        if (plugin.getVersion() == null) {
+            plugin.setVersion("RELEASE");
+        }
+
+        return plugin;
     }
 }

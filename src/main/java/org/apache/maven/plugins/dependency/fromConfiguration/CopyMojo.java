@@ -18,20 +18,26 @@
  */
 package org.apache.maven.plugins.dependency.fromConfiguration;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.dependency.utils.CopyUtil;
 import org.apache.maven.plugins.dependency.utils.filters.ArtifactItemFilter;
 import org.apache.maven.plugins.dependency.utils.filters.DestFileFilter;
+import org.apache.maven.project.MavenProject;
+import org.eclipse.aether.RepositorySystem;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
  * Goal that copies a list of artifacts from the repository to defined locations.
@@ -42,22 +48,22 @@ import org.apache.maven.plugins.dependency.utils.filters.DestFileFilter;
 @Mojo(name = "copy", defaultPhase = LifecyclePhase.PROCESS_SOURCES, requiresProject = false, threadSafe = true)
 public class CopyMojo extends AbstractFromConfigurationMojo {
 
-    @Component
-    private CopyUtil copyUtil;
+    private final CopyUtil copyUtil;
+
     /**
-     * Strip artifact version during copy
+     * Strip artifact version during copy.
      */
     @Parameter(property = "mdep.stripVersion", defaultValue = "false")
     private boolean stripVersion = false;
 
     /**
-     * Strip artifact classifier during copy
+     * Strip artifact classifier during copy.
      */
     @Parameter(property = "mdep.stripClassifier", defaultValue = "false")
     private boolean stripClassifier = false;
 
     /**
-     * Prepend artifact groupId during copy
+     * Prepend artifact groupId during copy.
      *
      * @since 2.7
      */
@@ -65,7 +71,7 @@ public class CopyMojo extends AbstractFromConfigurationMojo {
     private boolean prependGroupId = false;
 
     /**
-     * Use artifact baseVersion during copy
+     * Use artifact baseVersion during copy.
      *
      * @since 2.7
      */
@@ -80,11 +86,23 @@ public class CopyMojo extends AbstractFromConfigurationMojo {
     @Parameter(property = "artifact")
     private String artifact;
 
+    @Inject
+    public CopyMojo(
+            MavenSession session,
+            BuildContext buildContext,
+            MavenProject project,
+            ArtifactHandlerManager artifactHandlerManager,
+            CopyUtil copyUtil,
+            RepositorySystem repositorySystem) {
+        super(session, buildContext, project, artifactHandlerManager, repositorySystem);
+        this.copyUtil = copyUtil;
+    }
+
     /**
      * Main entry into mojo. This method gets the ArtifactItems and iterates through each one passing it to
      * copyArtifact.
      *
-     * @throws MojoExecutionException with a message if an error occurs.
+     * @throws MojoExecutionException with a message if an error occurs
      * @see ArtifactItem
      * @see #getArtifactItems
      * @see #copyArtifact(ArtifactItem)
@@ -95,11 +113,12 @@ public class CopyMojo extends AbstractFromConfigurationMojo {
 
         List<ArtifactItem> theArtifactItems = getProcessedArtifactItems(
                 new ProcessArtifactItemsRequest(stripVersion, prependGroupId, useBaseVersion, stripClassifier));
+
         for (ArtifactItem artifactItem : theArtifactItems) {
             if (artifactItem.isNeedsProcessing()) {
                 copyArtifact(artifactItem);
             } else {
-                this.getLog().info(artifactItem + " already exists in " + artifactItem.getOutputDirectory());
+                getLog().info(artifactItem + " already exists in " + artifactItem.getOutputDirectory());
             }
         }
     }
@@ -107,13 +126,15 @@ public class CopyMojo extends AbstractFromConfigurationMojo {
     /**
      * Resolves the artifact from the repository and copies it to the specified location.
      *
-     * @param artifactItem containing the information about the Artifact to copy.
-     * @throws MojoExecutionException with a message if an error occurs.
+     * @param artifactItem containing the information about the artifact to copy
+     * @throws MojoExecutionException with a message if an error occurs
      * @see CopyUtil#copyArtifactFile(Artifact, File)
      */
     protected void copyArtifact(ArtifactItem artifactItem) throws MojoExecutionException {
         File destFile = new File(artifactItem.getOutputDirectory(), artifactItem.getDestFileName());
-
+        if (destFile.exists()) {
+            getLog().warn("Overwriting " + destFile);
+        }
         try {
             copyUtil.copyArtifactFile(artifactItem.getArtifact(), destFile);
         } catch (IOException e) {
@@ -141,35 +162,35 @@ public class CopyMojo extends AbstractFromConfigurationMojo {
     }
 
     /**
-     * @return Returns the stripVersion.
+     * @return returns the stripVersion
      */
     public boolean isStripVersion() {
         return this.stripVersion;
     }
 
     /**
-     * @param stripVersion The stripVersion to set.
+     * @param stripVersion the stripVersion to set
      */
     public void setStripVersion(boolean stripVersion) {
         this.stripVersion = stripVersion;
     }
 
     /**
-     * @return Returns the stripClassifier.
+     * @return returns the stripClassifier
      */
     public boolean isStripClassifier() {
         return this.stripClassifier;
     }
 
     /**
-     * @param stripClassifier The stripClassifier to set.
+     * @param stripClassifier the stripClassifier to set
      */
     public void setStripClassifier(boolean stripClassifier) {
         this.stripClassifier = stripClassifier;
     }
 
     /**
-     * @param useBaseVersion The useBaseVersion to set.
+     * @param useBaseVersion the useBaseVersion to set
      */
     public void setUseBaseVersion(boolean useBaseVersion) {
         this.useBaseVersion = useBaseVersion;

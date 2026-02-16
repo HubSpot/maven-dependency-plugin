@@ -19,35 +19,37 @@
 package org.apache.maven.plugins.dependency.utils.markers;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import junit.framework.TestCase;
-import org.apache.commons.io.FileUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.testing.SilentLog;
 import org.apache.maven.plugins.dependency.testUtils.stubs.StubDefaultFileMarkerHandler;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * @author brianf
  */
-public class TestDefaultMarkerFileHandler extends TestCase {
+class TestDefaultMarkerFileHandler {
     List<Artifact> artifacts = new ArrayList<>();
 
-    Log log = new SilentLog();
-
+    @TempDir
     File outputFolder;
 
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @BeforeEach
+    void setUp() {
         ArtifactHandler ah = new DefaultArtifactHandler();
         VersionRange vr = VersionRange.createFromVersion("1.1");
         Artifact artifact = new DefaultArtifact("test", "1", vr, Artifact.SCOPE_COMPILE, "jar", "", ah, false);
@@ -58,17 +60,10 @@ public class TestDefaultMarkerFileHandler extends TestCase {
         artifacts.add(artifact);
         artifact = new DefaultArtifact("test", "4", vr, Artifact.SCOPE_RUNTIME, "zip", "", ah, false);
         artifacts.add(artifact);
-
-        outputFolder = new File("target/markers/");
-        FileUtils.deleteDirectory(this.outputFolder);
-        assertFalse(outputFolder.exists());
     }
 
-    protected void tearDown() throws IOException {
-        FileUtils.deleteDirectory(this.outputFolder);
-    }
-
-    public void testSetMarker() throws MojoExecutionException {
+    @Test
+    void setMarker() throws Exception {
         DefaultFileMarkerHandler handler = new DefaultFileMarkerHandler(artifacts.get(0), this.outputFolder);
         assertFalse(handler.isMarkerSet());
         handler.setMarker();
@@ -87,7 +82,8 @@ public class TestDefaultMarkerFileHandler extends TestCase {
         assertFalse(handler.isMarkerSet());
     }
 
-    public void testMarkerFile() throws MojoExecutionException, IOException {
+    @Test
+    void markerFile() throws Exception {
         DefaultFileMarkerHandler handler = new DefaultFileMarkerHandler(artifacts.get(0), this.outputFolder);
 
         File handle = handler.getMarkerFile();
@@ -108,7 +104,8 @@ public class TestDefaultMarkerFileHandler extends TestCase {
         assertFalse(handle.exists());
     }
 
-    public void testMarkerTimeStamp() throws MojoExecutionException, IOException, InterruptedException {
+    @Test
+    void markerTimeStamp() throws Exception {
         File theFile = new File(outputFolder, "theFile.jar");
         outputFolder.mkdirs();
         theFile.createNewFile();
@@ -130,7 +127,8 @@ public class TestDefaultMarkerFileHandler extends TestCase {
         assertFalse(handler.isMarkerSet());
     }
 
-    public void testMarkerFileException() {
+    @Test
+    void markerFileException() {
         // this stub wraps the file with an object to throw exceptions
         StubDefaultFileMarkerHandler handler = new StubDefaultFileMarkerHandler(artifacts.get(0), this.outputFolder);
         try {
@@ -141,7 +139,8 @@ public class TestDefaultMarkerFileHandler extends TestCase {
         }
     }
 
-    public void testGetterSetter() {
+    @Test
+    void getterSetter() {
         DefaultFileMarkerHandler handler = new DefaultFileMarkerHandler(null, null);
         assertNull(handler.getArtifact());
         handler.setArtifact(artifacts.get(0));
@@ -152,7 +151,8 @@ public class TestDefaultMarkerFileHandler extends TestCase {
         assertSame(outputFolder, handler.getMarkerFilesDirectory());
     }
 
-    public void testNullParent() throws MojoExecutionException {
+    @Test
+    void nullParent() throws Exception {
         // the parent isn't set so this will create the marker in the local
         // folder. We must clear the
         // marker to avoid leaving test droppings in root.

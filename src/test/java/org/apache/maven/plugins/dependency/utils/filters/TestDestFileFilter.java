@@ -20,51 +20,39 @@ package org.apache.maven.plugins.dependency.utils.filters;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
-import junit.framework.TestCase;
-import org.apache.commons.io.FileUtils;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.testing.SilentLog;
 import org.apache.maven.plugins.dependency.testUtils.DependencyArtifactStubFactory;
 import org.apache.maven.plugins.dependency.utils.DependencyUtil;
-import org.apache.maven.shared.artifact.filter.collection.ArtifactFilterException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author brianf
  */
-public class TestDestFileFilter extends TestCase {
-    Set<Artifact> artifacts = new HashSet<>();
+class TestDestFileFilter {
 
-    Log log = new SilentLog();
+    @TempDir
+    private File outputFolder;
 
-    File outputFolder;
+    private DependencyArtifactStubFactory fact;
 
-    DependencyArtifactStubFactory fact;
-
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        outputFolder = new File("target/markers/");
-        FileUtils.deleteDirectory(outputFolder);
-        assertFalse(outputFolder.exists());
-
+    @BeforeEach
+    void setUp() throws Exception {
         this.fact = new DependencyArtifactStubFactory(outputFolder, false);
-        artifacts = fact.getReleaseAndSnapshotArtifacts();
     }
 
-    protected void tearDown() throws IOException {
-        FileUtils.deleteDirectory(outputFolder);
-    }
-
-    public void createFile(Artifact artifact) throws IOException {
+    private void createFile(Artifact artifact) throws IOException {
         createFile(artifact, false, false, false);
     }
 
-    public File createFile(
+    private File createFile(
             Artifact artifact,
             boolean useSubDirectoryPerArtifact,
             boolean useSubDirectoryPerType,
@@ -73,7 +61,7 @@ public class TestDestFileFilter extends TestCase {
         return createFile(artifact, useSubDirectoryPerArtifact, useSubDirectoryPerType, removeVersion, false);
     }
 
-    public File createFile(
+    private File createFile(
             Artifact artifact,
             boolean useSubDirectoryPerArtifact,
             boolean useSubDirectoryPerType,
@@ -91,7 +79,8 @@ public class TestDestFileFilter extends TestCase {
         return destFile;
     }
 
-    public void testDestFileRelease() throws IOException, ArtifactFilterException {
+    @Test
+    void destFileRelease() throws Exception {
         DestFileFilter filter = new DestFileFilter(outputFolder);
         Artifact artifact = fact.getReleaseArtifact();
 
@@ -103,7 +92,8 @@ public class TestDestFileFilter extends TestCase {
         assertTrue(filter.isArtifactIncluded(artifact));
     }
 
-    public void testDestFileSnapshot() throws IOException, ArtifactFilterException {
+    @Test
+    void destFileSnapshot() throws Exception {
         DestFileFilter filter = new DestFileFilter(outputFolder);
         Artifact artifact = fact.getSnapshotArtifact();
 
@@ -115,7 +105,8 @@ public class TestDestFileFilter extends TestCase {
         assertTrue(filter.isArtifactIncluded(artifact));
     }
 
-    public void testDestFileStripVersion() throws IOException, ArtifactFilterException {
+    @Test
+    void destFileStripVersion() throws Exception {
         DestFileFilter filter = new DestFileFilter(outputFolder);
         Artifact artifact = fact.getSnapshotArtifact();
         filter.setRemoveVersion(true);
@@ -128,7 +119,8 @@ public class TestDestFileFilter extends TestCase {
         assertTrue(filter.isArtifactIncluded(artifact));
     }
 
-    public void testDestFileStripClassifier() throws IOException, ArtifactFilterException {
+    @Test
+    void destFileStripClassifier() throws Exception {
         DestFileFilter filter = new DestFileFilter(outputFolder);
         Artifact artifact = fact.getSnapshotArtifact();
         filter.setRemoveClassifier(true);
@@ -141,7 +133,8 @@ public class TestDestFileFilter extends TestCase {
         assertTrue(filter.isArtifactIncluded(artifact));
     }
 
-    public void testDestFileSubPerArtifact() throws IOException, ArtifactFilterException {
+    @Test
+    void destFileSubPerArtifact() throws Exception {
         DestFileFilter filter = new DestFileFilter(outputFolder);
         Artifact artifact = fact.getSnapshotArtifact();
         filter.setUseSubDirectoryPerArtifact(true);
@@ -154,7 +147,8 @@ public class TestDestFileFilter extends TestCase {
         assertTrue(filter.isArtifactIncluded(artifact));
     }
 
-    public void testDestFileSubPerType() throws MojoExecutionException, IOException, ArtifactFilterException {
+    @Test
+    void destFileSubPerType() throws Exception {
         DestFileFilter filter = new DestFileFilter(outputFolder);
         Artifact artifact = fact.getSnapshotArtifact();
         filter.setUseSubDirectoryPerType(true);
@@ -167,7 +161,8 @@ public class TestDestFileFilter extends TestCase {
         assertTrue(filter.isArtifactIncluded(artifact));
     }
 
-    public void testDestFileOverwriteIfNewer() throws MojoExecutionException, IOException, ArtifactFilterException {
+    @Test
+    void destFileOverwriteIfNewer() throws Exception {
         DestFileFilter filter = new DestFileFilter(outputFolder);
 
         fact.setCreateFiles(true);
@@ -192,7 +187,8 @@ public class TestDestFileFilter extends TestCase {
         assertFalse(filter.isArtifactIncluded(artifact));
     }
 
-    public void testGettersSetters() {
+    @Test
+    void gettersSetters() {
         DestFileFilter filter = new DestFileFilter(null);
         assertNull(filter.getOutputFileDirectory());
         filter.setOutputFileDirectory(outputFolder);
