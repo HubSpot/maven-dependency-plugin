@@ -19,7 +19,6 @@
 package org.apache.maven.plugins.dependency.analyze;
 
 import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +38,7 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.utils.PomFileUtil;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.utils.StringUtils;
+import org.codehaus.plexus.PlexusContainer;
 
 /**
  * Analyzes the dependencies of this project and determines which are: used and declared; used and undeclared; unused
@@ -64,11 +64,16 @@ public class FixMojo extends AbstractAnalyzeMojo {
     // @Component
     // private PomFileUtil pomFileUtil;
 
-    @Inject
     private ModelReader modelReader;
 
+    private MavenProject project;
+
     @Inject
-    private Provider<MavenProject> project;
+    public FixMojo(PlexusContainer plexusContainer, MavenProject project, ModelReader modelReader) {
+        super(plexusContainer, project);
+        this.modelReader = modelReader;
+        this.project = project;
+    }
 
     @Override
     protected boolean isFailOnWarning() {

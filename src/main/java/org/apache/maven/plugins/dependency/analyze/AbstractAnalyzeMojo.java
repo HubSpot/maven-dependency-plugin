@@ -60,7 +60,7 @@ import org.codehaus.plexus.util.xml.PrettyPrintXMLWriter;
 public abstract class AbstractAnalyzeMojo extends AbstractMojo {
     // fields -----------------------------------------------------------------
 
-  protected static final String DEPENDENCY_OVERRIDES = "maven-dependency-plugin.dep-overrides";
+    protected static final String DEPENDENCY_OVERRIDES = "maven-dependency-plugin.dep-overrides";
 
     /**
      * Specify the project dependency analyzer to use (plexus component role-hint). By default,
@@ -515,38 +515,38 @@ public abstract class AbstractAnalyzeMojo extends AbstractMojo {
         }
     }
 
-  private void logArtifacts(Map<Artifact, Set<DependencyUsage>> artifacts, boolean warn) {
-    if (artifacts.isEmpty()) {
-      getLog().info("   None");
-    } else {
-      for (Map.Entry<Artifact, Set<DependencyUsage>> entry : artifacts.entrySet()) {
-        // called because artifact will set the version to -SNAPSHOT only if I do this. MNG-2961
-        entry.getKey().isSnapshot();
-
-        List<String> messages = new ArrayList<>(toMessages(entry.getValue()));
-        Collections.sort(messages, Comparator.comparing(String::length));
-
-        int total = messages.size();
-        if (!verbose && total > 5) {
-          int extra = total - 5;
-          messages = new ArrayList<>(messages.subList(0, 5));
-          messages.add(String.format("... and %d more", extra));
-        }
-
-        if (warn) {
-          logDependencyWarning("   " + entry.getKey());
-          for (String message : messages) {
-            logDependencyWarning("      class " + message);
-          }
+    private void logArtifacts(Map<Artifact, Set<DependencyUsage>> artifacts, boolean warn) {
+        if (artifacts.isEmpty()) {
+            getLog().info("   None");
         } else {
-          getLog().info("   " + entry.getKey());
-          for (String message : messages) {
-            getLog().info("      class " + message);
-          }
+            for (Map.Entry<Artifact, Set<DependencyUsage>> entry : artifacts.entrySet()) {
+                // called because artifact will set the version to -SNAPSHOT only if I do this. MNG-2961
+                entry.getKey().isSnapshot();
+
+                List<String> messages = new ArrayList<>(toMessages(entry.getValue()));
+                Collections.sort(messages, Comparator.comparing(String::length));
+
+                int total = messages.size();
+                if (!verbose && total > 5) {
+                    int extra = total - 5;
+                    messages = new ArrayList<>(messages.subList(0, 5));
+                    messages.add(String.format("... and %d more", extra));
+                }
+
+                if (warn) {
+                    logDependencyWarning("   " + entry.getKey());
+                    for (String message : messages) {
+                        logDependencyWarning("      class " + message);
+                    }
+                } else {
+                    getLog().info("   " + entry.getKey());
+                    for (String message : messages) {
+                        getLog().info("      class " + message);
+                    }
+                }
+            }
         }
-      }
     }
-  }
 
     private void logDependencyWarning(CharSequence content) {
         if (isFailOnWarning()) {
