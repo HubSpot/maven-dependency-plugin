@@ -1,5 +1,5 @@
 buildpack:
-  name: Blazar-Buildpack-oss-fork
+  name: Blazar-Buildpack-Java-oss-fork
 
 env:
   SKIP_VERSION_OVERRIDE_ON_BRANCH: hubspot
