@@ -18,46 +18,41 @@
  */
 package org.apache.maven.plugins.dependency.resolvers;
 
-import java.io.File;
 import java.util.Set;
 
+import org.apache.maven.api.plugin.testing.InjectMojo;
+import org.apache.maven.api.plugin.testing.MojoTest;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.testing.SilentLog;
-import org.apache.maven.plugins.dependency.AbstractDependencyMojoTestCase;
-import org.apache.maven.plugins.dependency.testUtils.stubs.DependencyProjectStub;
+import org.apache.maven.plugins.dependency.testUtils.DependencyArtifactStubFactory;
+import org.apache.maven.plugins.dependency.utils.DependencySilentLog;
 import org.apache.maven.plugins.dependency.utils.DependencyStatusSets;
 import org.apache.maven.project.MavenProject;
+import org.junit.jupiter.api.Test;
 
-public class TestResolveMojo extends AbstractDependencyMojoTestCase {
+import static org.apache.maven.api.plugin.testing.MojoExtension.setVariableValueToObject;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.AssertionsKt.assertNotNull;
 
-    protected void setUp() throws Exception {
-        // required for mojo lookups to work
-        super.setUp("markers", false);
-
-        MavenProject project = new DependencyProjectStub();
-        getContainer().addComponent(project, MavenProject.class.getName());
-
-        MavenSession session = newMavenSession(project);
-        getContainer().addComponent(session, MavenSession.class.getName());
-    }
+@MojoTest
+class TestResolveMojo {
 
     /**
      * tests the proper discovery and configuration of the mojo
      *
      * @throws Exception in case of errors.
      */
-    public void testresolveTestEnvironment() throws Exception {
-        File testPom = new File(getBasedir(), "target/test-classes/unit/resolve-test/plugin-config.xml");
-        ResolveDependenciesMojo mojo = (ResolveDependenciesMojo) lookupMojo("resolve", testPom);
-
+    @Test
+    @InjectMojo(goal = "resolve")
+    void testResolveTestEnvironment(ResolveDependenciesMojo mojo) throws Exception {
         assertNotNull(mojo);
         assertNotNull(mojo.getProject());
         MavenProject project = mojo.getProject();
 
-        mojo.setSilent(true);
-        Set<Artifact> artifacts = this.stubFactory.getScopedArtifacts();
-        Set<Artifact> directArtifacts = this.stubFactory.getReleaseAndSnapshotArtifacts();
+        DependencyArtifactStubFactory stubFactory = new DependencyArtifactStubFactory(null, false);
+        Set<Artifact> artifacts = stubFactory.getScopedArtifacts();
+        Set<Artifact> directArtifacts = stubFactory.getReleaseAndSnapshotArtifacts();
         artifacts.addAll(directArtifacts);
 
         project.setArtifacts(artifacts);
@@ -76,11 +71,15 @@ public class TestResolveMojo extends AbstractDependencyMojoTestCase {
         assertEquals(directArtifacts.size(), results.getResolvedDependencies().size());
     }
 
-    public void testSilent() throws Exception {
-        File testPom = new File(getBasedir(), "target/test-classes/unit/resolve-test/plugin-config.xml");
-        ResolveDependenciesMojo mojo = (ResolveDependenciesMojo) lookupMojo("resolve", testPom);
-        mojo.setSilent(false);
+    @Test
+    @InjectMojo(goal = "resolve")
+    void testSilent(ResolveDependenciesMojo mojo) {
+        assertFalse(mojo.getLog() instanceof DependencySilentLog);
 
-        assertFalse(mojo.getLog() instanceof SilentLog);
+        mojo.setSilent(true);
+        assertTrue(mojo.getLog() instanceof DependencySilentLog);
+
+        mojo.setSilent(false);
+        assertFalse(mojo.getLog() instanceof DependencySilentLog);
     } // TODO: Test skipping artifacts.
 }

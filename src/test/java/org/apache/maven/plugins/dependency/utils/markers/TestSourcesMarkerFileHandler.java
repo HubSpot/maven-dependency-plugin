@@ -22,31 +22,32 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
-import junit.framework.TestCase;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.testing.SilentLog;
 import org.apache.maven.plugins.dependency.testUtils.stubs.StubSourcesFileMarkerHandler;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * @author brianf
  */
-public class TestSourcesMarkerFileHandler extends TestCase {
+class TestSourcesMarkerFileHandler {
     List<Artifact> artifacts = new ArrayList<>();
 
-    Log log = new SilentLog();
+    private File outputFolder;
 
-    File outputFolder;
-
-    protected void setUp() throws Exception {
-        super.setUp();
+    @BeforeEach
+    void setUp(@TempDir File tempDir) {
 
         ArtifactHandler ah = new DefaultArtifactHandler();
         VersionRange vr = VersionRange.createFromVersion("1.1");
@@ -59,18 +60,12 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         artifact = new DefaultArtifact("test", "4", vr, Artifact.SCOPE_RUNTIME, "zip", "", ah, false);
         artifacts.add(artifact);
 
-        // pick random output location
-        Random a = new Random();
-        outputFolder = new File("target/markers" + a.nextLong() + "/");
-        outputFolder.delete();
+        outputFolder = new File(tempDir, "markers");
         assertFalse(outputFolder.exists());
     }
 
-    protected void tearDown() {
-        outputFolder.delete();
-    }
-
-    public void testSetMarkerResolved() throws MojoExecutionException {
+    @Test
+    void setMarkerResolved() throws Exception {
         DefaultFileMarkerHandler handler = new SourcesFileMarkerHandler(artifacts.get(0), this.outputFolder, true);
         assertFalse(handler.isMarkerSet());
         handler.setMarker();
@@ -88,7 +83,8 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         assertFalse(outputFolder.exists());
     }
 
-    public void testSetMarkerUnresolved() throws MojoExecutionException {
+    @Test
+    void setMarkerUnresolved() throws Exception {
         DefaultFileMarkerHandler handler = new SourcesFileMarkerHandler(artifacts.get(0), this.outputFolder, false);
         assertFalse(handler.isMarkerSet());
         handler.setMarker();
@@ -106,7 +102,8 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         assertFalse(outputFolder.exists());
     }
 
-    public void testBothMarkers() throws MojoExecutionException {
+    @Test
+    void bothMarkers() throws Exception {
         DefaultFileMarkerHandler handler = new SourcesFileMarkerHandler(artifacts.get(1), this.outputFolder, true);
         DefaultFileMarkerHandler handler2 = new SourcesFileMarkerHandler(artifacts.get(1), this.outputFolder, false);
 
@@ -121,7 +118,8 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         assertFalse(outputFolder.exists());
     }
 
-    public void testMarkerFile() throws MojoExecutionException, IOException {
+    @Test
+    void markerFile() throws Exception {
         DefaultFileMarkerHandler handler = new SourcesFileMarkerHandler(artifacts.get(0), this.outputFolder, true);
         DefaultFileMarkerHandler handler2 = new SourcesFileMarkerHandler(artifacts.get(0), this.outputFolder, false);
 
@@ -176,16 +174,17 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         assertFalse(outputFolder.exists());
     }
 
-    public void testMarkerTimeStampResolved() throws MojoExecutionException, IOException, InterruptedException {
+    @Test
+    void markerTimeStampResolved() throws Exception {
         doTestMarkerTimeStamp(true);
     }
 
-    public void testMarkerTimeStampUnResolved() throws MojoExecutionException, IOException, InterruptedException {
+    @Test
+    void markerTimeStampUnResolved() throws Exception {
         doTestMarkerTimeStamp(false);
     }
 
-    public void doTestMarkerTimeStamp(boolean resolved)
-            throws MojoExecutionException, IOException, InterruptedException {
+    private void doTestMarkerTimeStamp(boolean resolved) throws MojoExecutionException, IOException {
         File theFile = new File(outputFolder, "theFile.jar");
         outputFolder.mkdirs();
         theFile.createNewFile();
@@ -220,7 +219,8 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         assertFalse(resolvedHandler.isMarkerSet());
     }
 
-    public void testMarkerFileException() {
+    @Test
+    void markerFileException() {
         // this stub wraps the file with an object to throw exceptions
         StubSourcesFileMarkerHandler handler =
                 new StubSourcesFileMarkerHandler(artifacts.get(0), this.outputFolder, true);
@@ -231,14 +231,16 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         }
     }
 
-    public void testMarkerFileResolvedSetter() {
+    @Test
+    void markerFileResolvedSetter() {
         SourcesFileMarkerHandler handler = new SourcesFileMarkerHandler(null, null, true);
         assertTrue(handler.isResolved());
         handler.setResolved(false);
         assertFalse(handler.isResolved());
     }
 
-    public void testNullParent() throws MojoExecutionException {
+    @Test
+    void nullParent() throws Exception {
         // the parent isn't set so this will create the marker in the local
         // folder. We must clear the
         // marker to avoid leaving test droppings in root.
@@ -250,7 +252,8 @@ public class TestSourcesMarkerFileHandler extends TestCase {
         assertFalse(handler.isMarkerSet());
     }
 
-    public void testNullParentResolved() throws MojoExecutionException {
+    @Test
+    void nullParentResolved() throws Exception {
         // the parent isn't set so this will create the marker in the local
         // folder. We must clear the
         // marker to avoid leaving test droppings in root.

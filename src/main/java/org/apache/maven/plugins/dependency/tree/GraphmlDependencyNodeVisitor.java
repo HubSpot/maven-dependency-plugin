@@ -18,6 +18,8 @@
  */
 package org.apache.maven.plugins.dependency.tree;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 
 import org.apache.maven.shared.dependency.graph.DependencyNode;
@@ -53,7 +55,7 @@ public class GraphmlDependencyNodeVisitor extends AbstractSerializingVisitor imp
     /**
      * Constructor.
      *
-     * @param writer the writer to write to.
+     * @param writer the writer to write to
      */
     public GraphmlDependencyNodeVisitor(Writer writer) {
         super(writer);
@@ -64,19 +66,24 @@ public class GraphmlDependencyNodeVisitor extends AbstractSerializingVisitor imp
      */
     @Override
     public boolean endVisit(DependencyNode node) {
-        if (node.getParent() == null || node.getParent() == node) {
-            writer.write(GRAPHML_FOOTER);
-        } else {
-            DependencyNode p = node.getParent();
-            writer.print("<edge source=\"" + generateId(p) + "\" target=\"" + generateId(node) + "\">");
-            if (node.getArtifact().getScope() != null) {
-                // add Edge label
-                writer.print("<data key=\"d1\"><y:PolyLineEdge><y:EdgeLabel>"
-                        + node.getArtifact().getScope() + "</y:EdgeLabel></y:PolyLineEdge></data>");
+        try {
+            if (node.getParent() == null || node.getParent() == node) {
+                writer.write(GRAPHML_FOOTER);
+            } else {
+                DependencyNode p = node.getParent();
+                writer.write("<edge source=\"" + generateId(p) + "\" target=\"" + generateId(node) + "\">");
+                if (node.getArtifact().getScope() != null) {
+                    // add Edge label
+                    writer.write("<data key=\"d1\"><y:PolyLineEdge><y:EdgeLabel>"
+                            + node.getArtifact().getScope() + "</y:EdgeLabel></y:PolyLineEdge></data>");
+                }
+                writer.write("</edge>" + System.lineSeparator());
             }
-            writer.println("</edge>");
+            writer.flush();
+            return true;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to write GraphML format output", e);
         }
-        return true;
     }
 
     /**
@@ -84,16 +91,22 @@ public class GraphmlDependencyNodeVisitor extends AbstractSerializingVisitor imp
      */
     @Override
     public boolean visit(DependencyNode node) {
-        if (node.getParent() == null || node.getParent() == node) {
-            writer.write(GRAPHML_HEADER);
+        try {
+            if (node.getParent() == null || node.getParent() == node) {
+                writer.write(GRAPHML_HEADER);
+                writer.flush();
+            }
+            // write node
+            writer.write("<node id=\"" + generateId(node) + "\">");
+            // add node label
+            writer.write("<data key=\"d0\"><y:ShapeNode><y:NodeLabel>" + node.toNodeString()
+                    + "</y:NodeLabel></y:ShapeNode></data>");
+            writer.write("</node>" + System.lineSeparator());
+            writer.flush();
+            return true;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to write GraphML format output", e);
         }
-        // write node
-        writer.print("<node id=\"" + generateId(node) + "\">");
-        // add node label
-        writer.print("<data key=\"d0\"><y:ShapeNode><y:NodeLabel>" + node.toNodeString()
-                + "</y:NodeLabel></y:ShapeNode></data>");
-        writer.println("</node>");
-        return true;
     }
 
     /**
@@ -102,8 +115,8 @@ public class GraphmlDependencyNodeVisitor extends AbstractSerializingVisitor imp
      * Current implementation is rather simple and uses hashcode.
      * </p>
      *
-     * @param node the DependencyNode to use.
-     * @return the unique id.
+     * @param node the DependencyNode to use
+     * @return the unique id
      */
     private static String generateId(DependencyNode node) {
         return String.valueOf(node.hashCode());

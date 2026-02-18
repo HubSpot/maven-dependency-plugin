@@ -18,150 +18,128 @@
  */
 package org.apache.maven.plugins.dependency;
 
-import java.io.File;
+import javax.inject.Inject;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 
+import org.apache.maven.api.plugin.testing.Basedir;
+import org.apache.maven.api.plugin.testing.InjectMojo;
+import org.apache.maven.api.plugin.testing.MojoParameter;
+import org.apache.maven.api.plugin.testing.MojoTest;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.internal.aether.DefaultRepositorySystemSessionFactory;
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugins.dependency.testUtils.stubs.DependencyProjectStub;
-import org.apache.maven.plugins.dependency.utils.ResolverUtil;
-import org.apache.maven.project.MavenProject;
-import org.eclipse.aether.RepositorySystem;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-public class TestListClassesMojo extends AbstractDependencyMojoTestCase {
-    private ListClassesMojo mojo;
+import static org.apache.maven.api.plugin.testing.MojoExtension.getBasedir;
+import static org.mockito.Mockito.verify;
 
-    protected void setUp() throws Exception {
-        super.setUp("markers", false);
+@ExtendWith(MockitoExtension.class)
+@MojoTest(realRepositorySession = true)
+class TestListClassesMojo {
 
-        MavenProject project = new DependencyProjectStub();
-        getContainer().addComponent(project, MavenProject.class.getName());
+    @Inject
+    private MavenSession mavenSession;
 
-        MavenSession session = newMavenSession(project);
+    @Inject
+    private DefaultRepositorySystemSessionFactory repoSessionFactory;
 
-        RepositorySystem repositorySystem = lookup(RepositorySystem.class);
-        ResolverUtil resolverUtil = new ResolverUtil(repositorySystem, () -> session);
-        getContainer().addComponent(resolverUtil, ResolverUtil.class.getName());
+    @Inject
+    private Log log;
 
-        getContainer().addComponent(session, MavenSession.class.getName());
-
-        File testPom = new File(getBasedir(), "target/test-classes/unit/get-test/plugin-config.xml");
-
-        assertTrue(testPom.exists());
-        mojo = (ListClassesMojo) lookupMojo("list-classes", testPom);
-
-        assertNotNull(mojo);
-
-        installLocalRepository(session.getRepositorySession());
-    }
-
-    public void testListClassesNotTransitive() throws Exception {
-        Path path = Paths.get("src/test/resources/unit/list-test/testListClassesNotTransitive.txt");
+    @Test
+    @InjectMojo(goal = "list-classes")
+    @MojoParameter(
+            name = "remoteRepositories",
+            value = "central::default::https://repo.maven.apache.org/maven2,"
+                    + "central::::https://repo.maven.apache.org/maven2,"
+                    + "https://repo.maven.apache.org/maven2")
+    @MojoParameter(name = "transitive", value = "false")
+    @MojoParameter(name = "artifact", value = "org.apache.commons:commons-lang3:3.6")
+    @Basedir("/unit/list-test")
+    void testListClassesNotTransitive(ListClassesMojo mojo) throws Exception {
+        Path path = Paths.get(getBasedir(), "testListClassesNotTransitive.txt");
         List<String> expectedLogArgs = Files.readAllLines(path);
         ArgumentCaptor<String> infoArgsCaptor = ArgumentCaptor.forClass(String.class);
 
-        setVariableValueToObject(
-                mojo,
-                "remoteRepositories",
-                Arrays.asList(
-                        "central::default::https://repo.maven.apache.org/maven2",
-                        "central::::https://repo.maven.apache.org/maven2",
-                        "https://repo.maven.apache.org/maven2"));
-        mojo.setArtifact("org.apache.commons:commons-lang3:3.6");
-        setVariableValueToObject(mojo, "transitive", Boolean.FALSE);
-
-        Log log = Mockito.mock(Log.class);
-        mojo.setLog(log);
-
         mojo.execute();
 
-        Mockito.verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
-        Assert.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
+        verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
+        Assertions.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
     }
 
-    public void testListClassesNotTransitiveByGAV() throws Exception {
-        Path path = Paths.get("src/test/resources/unit/list-test/testListClassesNotTransitive.txt");
+    @Test
+    @InjectMojo(goal = "list-classes")
+    @MojoParameter(
+            name = "remoteRepositories",
+            value = "central::default::https://repo.maven.apache.org/maven2,"
+                    + "central::::https://repo.maven.apache.org/maven2,"
+                    + "https://repo.maven.apache.org/maven2")
+    @MojoParameter(name = "transitive", value = "false")
+    @MojoParameter(name = "groupId", value = "org.apache.commons")
+    @MojoParameter(name = "artifactId", value = "commons-lang3")
+    @MojoParameter(name = "version", value = "3.6")
+    @Basedir("/unit/list-test")
+    void testListClassesNotTransitiveByGAV(ListClassesMojo mojo) throws Exception {
+        Path path = Paths.get(getBasedir(), "testListClassesNotTransitive.txt");
         List<String> expectedLogArgs = Files.readAllLines(path);
         ArgumentCaptor<String> infoArgsCaptor = ArgumentCaptor.forClass(String.class);
 
-        setVariableValueToObject(
-                mojo,
-                "remoteRepositories",
-                Arrays.asList(
-                        "central1::default::https://repo.maven.apache.org/maven2",
-                        "central2::::https://repo.maven.apache.org/maven2",
-                        "https://repo.maven.apache.org/maven2"));
-
-        mojo.setGroupId("org.apache.commons");
-        mojo.setArtifactId("commons-lang3");
-        mojo.setVersion("3.6");
-
-        setVariableValueToObject(mojo, "transitive", Boolean.FALSE);
-
-        Log log = Mockito.mock(Log.class);
-        mojo.setLog(log);
-
         mojo.execute();
 
-        Mockito.verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
-        Assert.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
+        verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
+        Assertions.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
     }
 
-    public void testListClassesTransitive() throws Exception {
-        Path path = Paths.get("src/test/resources/unit/list-test/testListClassesTransitive.txt");
+    @Test
+    @InjectMojo(goal = "list-classes")
+    @MojoParameter(
+            name = "remoteRepositories",
+            value = "central::default::https://repo.maven.apache.org/maven2,"
+                    + "central::::https://repo.maven.apache.org/maven2,"
+                    + "https://repo.maven.apache.org/maven2")
+    @MojoParameter(name = "transitive", value = "true")
+    @MojoParameter(name = "artifact", value = "org.apache.commons:commons-lang3:3.6")
+    @Basedir("/unit/list-test")
+    void testListClassesTransitive(ListClassesMojo mojo) throws Exception {
+        Path path = Paths.get(getBasedir(), "testListClassesTransitive.txt");
         List<String> expectedLogArgs = Files.readAllLines(path);
         ArgumentCaptor<String> infoArgsCaptor = ArgumentCaptor.forClass(String.class);
 
-        setVariableValueToObject(
-                mojo,
-                "remoteRepositories",
-                Arrays.asList(
-                        "central::default::https://repo.maven.apache.org/maven2",
-                        "central::::https://repo.maven.apache.org/maven2",
-                        "https://repo.maven.apache.org/maven2"));
-
-        mojo.setArtifact("org.apache.commons:commons-lang3:3.6");
-        setVariableValueToObject(mojo, "transitive", Boolean.TRUE);
-
-        Log log = Mockito.mock(Log.class);
-        mojo.setLog(log);
-
         mojo.execute();
 
-        Mockito.verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
-        Assert.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
+        verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
+        Assertions.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
     }
 
-    public void testListClassesTransitiveByGAV() throws Exception {
-        Path path = Paths.get("src/test/resources/unit/list-test/testListClassesTransitive.txt");
+    @Test
+    @InjectMojo(goal = "list-classes")
+    @MojoParameter(
+            name = "remoteRepositories",
+            value = "central::default::https://repo.maven.apache.org/maven2,"
+                    + "central::::https://repo.maven.apache.org/maven2,"
+                    + "https://repo.maven.apache.org/maven2")
+    @MojoParameter(name = "transitive", value = "true")
+    @MojoParameter(name = "groupId", value = "org.apache.commons")
+    @MojoParameter(name = "artifactId", value = "commons-lang3")
+    @MojoParameter(name = "version", value = "3.6")
+    @Basedir("/unit/list-test")
+    void testListClassesTransitiveByGAV(ListClassesMojo mojo) throws Exception {
+        Path path = Paths.get(getBasedir(), "testListClassesTransitive.txt");
         List<String> expectedLogArgs = Files.readAllLines(path);
         ArgumentCaptor<String> infoArgsCaptor = ArgumentCaptor.forClass(String.class);
 
-        setVariableValueToObject(
-                mojo,
-                "remoteRepositories",
-                Arrays.asList(
-                        "central::default::https://repo.maven.apache.org/maven2",
-                        "central::::https://repo.maven.apache.org/maven2",
-                        "https://repo.maven.apache.org/maven2"));
-        mojo.setGroupId("org.apache.commons");
-        mojo.setArtifactId("commons-lang3");
-        mojo.setVersion("3.6");
-        setVariableValueToObject(mojo, "transitive", Boolean.TRUE);
-
-        Log log = Mockito.mock(Log.class);
-        mojo.setLog(log);
-
         mojo.execute();
 
-        Mockito.verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
-        Assert.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
+        verify(log, Mockito.times(expectedLogArgs.size())).info(infoArgsCaptor.capture());
+        Assertions.assertEquals(expectedLogArgs, infoArgsCaptor.getAllValues());
     }
 }

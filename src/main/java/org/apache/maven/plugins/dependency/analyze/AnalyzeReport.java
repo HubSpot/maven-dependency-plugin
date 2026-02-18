@@ -18,10 +18,11 @@
  */
 package org.apache.maven.plugins.dependency.analyze;
 
+import javax.inject.Inject;
+
 import java.util.Locale;
 import java.util.Set;
 
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Execute;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -48,11 +49,15 @@ public class AnalyzeReport extends AbstractMavenReport {
     /**
      * The Maven project dependency analyzer to use.
      */
-    @Component
-    private ProjectDependencyAnalyzer analyzer;
+    private final ProjectDependencyAnalyzer analyzer;
 
     /**
-     * Ignore Runtime/Provided/Test/System scopes for unused dependency analysis
+     * Internationalization component.
+     */
+    private final I18N i18n;
+
+    /**
+     * Ignore Runtime/Provided/Test/System scopes for unused dependency analysis.
      *
      * @since 2.2
      */
@@ -84,11 +89,11 @@ public class AnalyzeReport extends AbstractMavenReport {
     @Parameter(property = "mdep.analyze.excludedClasses")
     private Set<String> excludedClasses;
 
-    /**
-     * Internationalization component
-     */
-    @Component
-    private I18N i18n;
+    @Inject
+    public AnalyzeReport(ProjectDependencyAnalyzer analyzer, I18N i18n) {
+        this.analyzer = analyzer;
+        this.i18n = i18n;
+    }
 
     // Mojo methods -----------------------------------------------------------
 
@@ -135,18 +140,26 @@ public class AnalyzeReport extends AbstractMavenReport {
         return true;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getOutputName() {
         return "dependency-analysis";
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String getName(Locale locale) {
         return getI18nString(locale, "name");
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String getDescription(Locale locale) {
         return getI18nString(locale, "description");
     }
@@ -154,9 +167,9 @@ public class AnalyzeReport extends AbstractMavenReport {
     // protected methods ------------------------------------------------------
 
     /**
-     * @param locale The locale
-     * @param key The key to search for
-     * @return The text appropriate for the locale.
+     * @param locale the locale
+     * @param key the key to search for
+     * @return the text appropriate for the locale
      */
     protected String getI18nString(Locale locale, String key) {
         return i18n.getString("analyze-report", locale, "report.analyze." + key);

@@ -18,22 +18,27 @@
  */
 package org.apache.maven.plugins.dependency.fromConfiguration;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.util.List;
 
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.plugins.dependency.utils.StringUtils;
 import org.apache.maven.plugins.dependency.utils.UnpackUtil;
 import org.apache.maven.plugins.dependency.utils.filters.ArtifactItemFilter;
 import org.apache.maven.plugins.dependency.utils.filters.MarkerFileFilter;
 import org.apache.maven.plugins.dependency.utils.markers.MarkerHandler;
 import org.apache.maven.plugins.dependency.utils.markers.UnpackFileMarkerHandler;
+import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.components.io.filemappers.FileMapper;
+import org.eclipse.aether.RepositorySystem;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
  * Goal that retrieves a list of artifacts from the repository and unpacks them in a defined location.
@@ -44,13 +49,14 @@ import org.codehaus.plexus.components.io.filemappers.FileMapper;
 @Mojo(name = "unpack", defaultPhase = LifecyclePhase.PROCESS_SOURCES, requiresProject = false, threadSafe = true)
 public class UnpackMojo extends AbstractFromConfigurationMojo {
 
-    @Component
-    private UnpackUtil unpackUtil;
+    private final UnpackUtil unpackUtil;
 
     /**
-     * Directory to store flag files after unpack
+     * Directory to store flag files after unpack.
      */
-    @Parameter(defaultValue = "${project.build.directory}/dependency-maven-plugin-markers")
+    @Parameter(
+            property = "markersDirectory",
+            defaultValue = "${project.build.directory}/dependency-maven-plugin-markers")
     private File markersDirectory;
 
     /**
@@ -74,7 +80,7 @@ public class UnpackMojo extends AbstractFromConfigurationMojo {
     private String excludes;
 
     /**
-     * ignore to set file permissions when unpacking a dependency
+     * Ignore to set file permissions when unpacking a dependency.
      *
      * @since 2.7
      */
@@ -98,11 +104,23 @@ public class UnpackMojo extends AbstractFromConfigurationMojo {
     @Parameter(property = "artifact")
     private String artifact;
 
+    @Inject
+    public UnpackMojo(
+            MavenSession session,
+            BuildContext buildContext,
+            MavenProject project,
+            ArtifactHandlerManager artifactHandlerManager,
+            UnpackUtil unpackUtil,
+            RepositorySystem repositorySystem) {
+        super(session, buildContext, project, artifactHandlerManager, repositorySystem);
+        this.unpackUtil = unpackUtil;
+    }
+
     /**
      * Main entry into mojo. This method gets the ArtifactItems and iterates through each one passing it to
      * unpackArtifact.
      *
-     * @throws MojoExecutionException with a message if an error occurs.
+     * @throws MojoExecutionException with a message if an error occurs
      * @see ArtifactItem
      * @see #getArtifactItems
      * @see #unpackArtifact(ArtifactItem)
@@ -128,8 +146,8 @@ public class UnpackMojo extends AbstractFromConfigurationMojo {
     /**
      * This method gets the Artifact object and calls DependencyUtil.unpackFile.
      *
-     * @param artifactItem containing the information about the Artifact to unpack.
-     * @throws MojoExecutionException with a message if an error occurs.
+     * @param artifactItem containing the information about the Artifact to unpack
+     * @throws MojoExecutionException with a message if an error occurs
      * @see #getArtifact
      */
     private void unpackArtifact(ArtifactItem artifactItem) throws MojoExecutionException {
@@ -157,18 +175,18 @@ public class UnpackMojo extends AbstractFromConfigurationMojo {
     }
 
     /**
-     * @param removeVersion removeVersion.
+     * @param removeVersion removeVersion
      * @return list of {@link ArtifactItem}
-     * @throws MojoExecutionException in case of an error.
+     * @throws MojoExecutionException in case of an error
      */
     protected List<ArtifactItem> getProcessedArtifactItems(boolean removeVersion) throws MojoExecutionException {
         List<ArtifactItem> items =
                 super.getProcessedArtifactItems(new ProcessArtifactItemsRequest(removeVersion, false, false, false));
         for (ArtifactItem artifactItem : items) {
-            if (StringUtils.isEmpty(artifactItem.getIncludes())) {
+            if (artifactItem.getIncludes().isEmpty()) {
                 artifactItem.setIncludes(getIncludes());
             }
-            if (StringUtils.isEmpty(artifactItem.getExcludes())) {
+            if (artifactItem.getExcludes().isEmpty()) {
                 artifactItem.setExcludes(getExcludes());
             }
         }
@@ -176,42 +194,42 @@ public class UnpackMojo extends AbstractFromConfigurationMojo {
     }
 
     /**
-     * @return Returns the markersDirectory.
+     * @return returns the markersDirectory
      */
     public File getMarkersDirectory() {
         return this.markersDirectory;
     }
 
     /**
-     * @param theMarkersDirectory The markersDirectory to set.
+     * @param theMarkersDirectory the markersDirectory to set
      */
     public void setMarkersDirectory(File theMarkersDirectory) {
         this.markersDirectory = theMarkersDirectory;
     }
 
     /**
-     * @return Returns a comma separated list of excluded items
+     * @return returns a comma separated list of excluded items
      */
     public String getExcludes() {
         return this.excludes;
     }
 
     /**
-     * @param excludes A comma separated list of items to exclude i.e. **\/*.xml, **\/*.properties
+     * @param excludes a comma separated list of items to exclude i.e. **\/*.xml, **\/*.properties
      */
     public void setExcludes(String excludes) {
         this.excludes = excludes;
     }
 
     /**
-     * @return Returns a comma separated list of included items
+     * @return returns a comma separated list of included items
      */
     public String getIncludes() {
         return this.includes;
     }
 
     /**
-     * @param includes A comma separated list of items to include i.e. **\/*.xml, **\/*.properties
+     * @param includes a comma separated list of items to include i.e. **\/*.xml, **\/*.properties
      */
     public void setIncludes(String includes) {
         this.includes = includes;
@@ -219,8 +237,7 @@ public class UnpackMojo extends AbstractFromConfigurationMojo {
 
     /**
      * @return {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no rewriting shall
-     *         happen.
-     *
+     *         happen
      * @since 3.1.2
      */
     public FileMapper[] getFileMappers() {
@@ -229,8 +246,7 @@ public class UnpackMojo extends AbstractFromConfigurationMojo {
 
     /**
      * @param fileMappers {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no
-     * rewriting shall happen.
-     *
+     * rewriting shall happen
      * @since 3.1.2
      */
     public void setFileMappers(FileMapper[] fileMappers) {

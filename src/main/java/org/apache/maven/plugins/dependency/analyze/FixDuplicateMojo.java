@@ -19,7 +19,6 @@
 package org.apache.maven.plugins.dependency.analyze;
 
 import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,11 +57,16 @@ public class FixDuplicateMojo extends AnalyzeDuplicateMojo {
     // @Component
     // private PomFileUtil pomFileUtil;
 
-    @Inject
     private ModelReader modelReader;
 
+    private MavenProject project;
+
     @Inject
-    private Provider<MavenProject> project;
+    public FixDuplicateMojo(MavenProject project, ModelReader modelReader) {
+        super(project);
+        this.project = project;
+        this.modelReader = modelReader;
+    }
 
     @Override
     protected void handle(

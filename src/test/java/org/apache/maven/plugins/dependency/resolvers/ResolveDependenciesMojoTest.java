@@ -24,31 +24,42 @@ import java.util.Set;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.versioning.VersionRange;
-import org.apache.maven.plugins.dependency.AbstractDependencyMojoTestCase;
+import org.apache.maven.plugins.dependency.testUtils.DependencyArtifactStubFactory;
 import org.apache.maven.plugins.dependency.utils.DependencyStatusSets;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-public class ResolveDependenciesMojoTest extends AbstractDependencyMojoTestCase {
-    protected void setUp() throws Exception {
-        // required for mojo lookups to work
-        super.setUp("dss", true);
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ResolveDependenciesMojoTest {
+
+    private DependencyArtifactStubFactory stubFactory;
+
+    @BeforeEach
+    void setUp() {
+        stubFactory = new DependencyArtifactStubFactory(null, false, false);
     }
 
-    public void testDependencyStatusLog() throws IOException {
+    @Test
+    void testDependencyStatusLog() throws IOException {
         Set<Artifact> artifacts = this.stubFactory.getMixedArtifacts();
         doTestDependencyStatusLog(artifacts);
     }
 
-    public void testDependencyStatusLogNullFiles() throws IOException {
+    @Test
+    void testDependencyStatusLogNullFiles() throws IOException {
         this.stubFactory.setCreateFiles(false);
         Set<Artifact> artifacts = this.stubFactory.getMixedArtifacts();
         doTestDependencyStatusLog(artifacts);
     }
 
-    public void testDependencyStatusEmptySet() {
+    @Test
+    void testDependencyStatusEmptySet() {
         doTestDependencyStatusLog(new HashSet<>());
     }
 
-    public void testOptionalDependencyFormatting() throws IOException {
+    @Test
+    void testOptionalDependencyFormatting() throws IOException {
         Set<Artifact> set = new HashSet<>();
         Artifact artifact =
                 stubFactory.createArtifact("g", "a", VersionRange.createFromVersion("1.0"), "test", "jar", null, true);
@@ -60,8 +71,7 @@ public class ResolveDependenciesMojoTest extends AbstractDependencyMojoTestCase 
         assertTrue(output.contains("g:a:jar:1.0:test (optional)" + System.lineSeparator()));
     }
 
-    public void doTestDependencyStatusLog(Set<Artifact> artifacts) {
-        // TODO: implement logger to check correct output
+    private void doTestDependencyStatusLog(Set<Artifact> artifacts) {
         // this test is just looking for unexpected exceptions.
 
         ResolveDependenciesMojo mojo = newMojo(new DependencyStatusSets());
@@ -100,7 +110,7 @@ public class ResolveDependenciesMojoTest extends AbstractDependencyMojoTestCase 
     }
 
     private ResolveDependenciesMojo newMojo(final DependencyStatusSets dss) {
-        ResolveDependenciesMojo mojo = new ResolveDependenciesMojo();
+        ResolveDependenciesMojo mojo = new ResolveDependenciesMojo(null, null, null, null, null, null);
         mojo.results = dss;
         return mojo;
     }

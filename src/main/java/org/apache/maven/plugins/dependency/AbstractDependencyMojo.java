@@ -18,19 +18,14 @@
  */
 package org.apache.maven.plugins.dependency;
 
-import java.util.List;
-
-import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.dependency.utils.DependencySilentLog;
-import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.ProjectBuildingRequest;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
@@ -39,55 +34,17 @@ import org.sonatype.plexus.build.incremental.BuildContext;
 public abstract class AbstractDependencyMojo extends AbstractMojo {
 
     /**
-     * For IDE build support
+     * The Maven session.
      */
-    @Component
-    private BuildContext buildContext;
-
-    /**
-     * Skip plugin execution only during incremental builds (e.g. triggered from M2E).
-     *
-     * @since 3.4.0
-     * @see #skip
-     */
-    @Parameter(defaultValue = "false")
-    private boolean skipDuringIncrementalBuild;
-
-    /**
-     * POM
-     */
-    @Component
-    private MavenProject project;
-
-    /**
-     * Remote repositories which will be searched for artifacts.
-     */
-    @Parameter(defaultValue = "${project.remoteArtifactRepositories}", readonly = true, required = true)
-    private List<ArtifactRepository> remoteRepositories;
-
-    /**
-     * Remote repositories which will be searched for plugins.
-     */
-    @Parameter(defaultValue = "${project.pluginArtifactRepositories}", readonly = true, required = true)
-    private List<ArtifactRepository> remotePluginRepositories;
-
-    /**
-     * Contains the full list of projects in the reactor.
-     */
-    @Parameter(defaultValue = "${reactorProjects}", readonly = true)
-    protected List<MavenProject> reactorProjects;
-
-    /**
-     * The Maven session
-     */
-    @Component
-    protected MavenSession session;
+    protected final MavenSession session;
 
     /**
      * If the plugin should be silent.
      *
      * @since 2.0
+     * @deprecated to be removed in 4.0; use -q command line option instead
      */
+    @Deprecated
     @Parameter(property = "silent", defaultValue = "false")
     private boolean silent;
 
@@ -98,6 +55,31 @@ public abstract class AbstractDependencyMojo extends AbstractMojo {
      */
     @Parameter(property = "mdep.skip", defaultValue = "false")
     private boolean skip;
+
+    /**
+     * Skip plugin execution only during incremental builds (e.g. triggered from M2E).
+     *
+     * @see #skip
+     * @since 3.4.0
+     */
+    @Parameter(defaultValue = "false")
+    private boolean skipDuringIncrementalBuild;
+
+    /**
+     * For IDE build support.
+     */
+    private final BuildContext buildContext;
+
+    /**
+     * POM.
+     */
+    private final MavenProject project;
+
+    protected AbstractDependencyMojo(MavenSession session, BuildContext buildContext, MavenProject project) {
+        this.session = session;
+        this.buildContext = buildContext;
+        this.project = project;
+    }
 
     // Mojo methods -----------------------------------------------------------
 
@@ -121,31 +103,7 @@ public abstract class AbstractDependencyMojo extends AbstractMojo {
     protected abstract void doExecute() throws MojoExecutionException, MojoFailureException;
 
     /**
-     * @return Returns a new ProjectBuildingRequest populated from the current session and the current project remote
-     *         repositories, used to resolve artifacts.
-     */
-    public ProjectBuildingRequest newResolveArtifactProjectBuildingRequest() {
-        return newProjectBuildingRequest(remoteRepositories);
-    }
-
-    /**
-     * @return Returns a new ProjectBuildingRequest populated from the current session and the current project remote
-     *         repositories, used to resolve plugins.
-     */
-    protected ProjectBuildingRequest newResolvePluginProjectBuildingRequest() {
-        return newProjectBuildingRequest(remotePluginRepositories);
-    }
-
-    private ProjectBuildingRequest newProjectBuildingRequest(List<ArtifactRepository> repositories) {
-        ProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
-
-        buildingRequest.setRemoteRepositories(repositories);
-
-        return buildingRequest;
-    }
-
-    /**
-     * @return Returns the project.
+     * @return returns the project
      */
     public MavenProject getProject() {
         return this.project;
@@ -170,18 +128,24 @@ public abstract class AbstractDependencyMojo extends AbstractMojo {
 
     /**
      * @return {@link #silent}
+     * @deprecated to be removed in 4.0
      */
+    @Deprecated
     protected final boolean isSilent() {
         return silent;
     }
 
     /**
      * @param silent {@link #silent}
+     * @deprecated to be removed in 4.0; no API replacement, use -q command line option instead
      */
+    @Deprecated
     public void setSilent(boolean silent) {
         this.silent = silent;
         if (silent) {
             setLog(new DependencySilentLog());
+        } else if (getLog() instanceof DependencySilentLog) {
+            setLog(new SystemStreamLog());
         }
     }
 }

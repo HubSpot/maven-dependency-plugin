@@ -18,6 +18,8 @@
  */
 package org.apache.maven.plugins.dependency.resolvers;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -32,6 +34,8 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -39,14 +43,18 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.utils.DependencyStatusSets;
 import org.apache.maven.plugins.dependency.utils.DependencyUtil;
+import org.apache.maven.plugins.dependency.utils.ResolverUtil;
 import org.apache.maven.plugins.dependency.utils.filters.ResolveFileFilter;
 import org.apache.maven.plugins.dependency.utils.markers.SourcesFileMarkerHandler;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.shared.artifact.filter.collection.ArtifactsFilter;
 import org.apache.maven.shared.utils.logging.MessageBuilder;
 import org.apache.maven.shared.utils.logging.MessageUtils;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
- * Goal that resolves the project dependencies from the repository. When using this goal while running on Java 9 the
+ * Goal that resolves the project dependencies from the repository. When running on Java 9, the
  * module names will be visible as well.
  *
  * @author <a href="mailto:brianf@apache.org">Brian Fox</a>
@@ -63,7 +71,7 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
     private String outputEncoding;
 
     /**
-     * If we should display the scope when resolving
+     * If we should display the scope when resolving.
      *
      * @since 2.0-alpha-2
      */
@@ -71,7 +79,7 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
     protected boolean outputScope;
 
     /**
-     * Output absolute filename for resolved artifacts
+     * Output absolute filename for resolved artifacts.
      *
      * @since 2.0
      */
@@ -79,7 +87,7 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
     private boolean outputAbsoluteArtifactFilename;
 
     /**
-     * Only used to store results for integration test validation
+     * Only used to store results for integration test validation.
      */
     DependencyStatusSets results;
 
@@ -98,6 +106,19 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
      */
     @Parameter(property = "includeParents", defaultValue = "false")
     boolean includeParents;
+
+    @Inject
+    // CHECKSTYLE_OFF: ParameterNumber
+    public ResolveDependenciesMojo(
+            MavenSession session,
+            BuildContext buildContext,
+            MavenProject project,
+            ResolverUtil resolverUtil,
+            ProjectBuilder projectBuilder,
+            ArtifactHandlerManager artifactHandlerManager) {
+        super(session, buildContext, project, resolverUtil, projectBuilder, artifactHandlerManager);
+    }
+    // CHECKSTYLE_ON: ParameterNumber
 
     /**
      * Main entry into mojo. Gets the list of dependencies and iterates through displaying the resolved version.
@@ -142,7 +163,9 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
      */
     public String getOutput(boolean outputAbsoluteArtifactFilename, boolean theOutputScope, boolean theSort) {
         StringBuilder sb = new StringBuilder();
-        sb.append(System.lineSeparator());
+        if (outputFile == null) {
+            sb.append(System.lineSeparator());
+        }
         sb.append("The following files have been resolved:");
         sb.append(System.lineSeparator());
         if (results.getResolvedDependencies() == null
@@ -184,7 +207,6 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
         List<String> artifactStringList = new ArrayList<>();
         for (Artifact artifact : artifacts) {
             MessageBuilder messageBuilder = MessageUtils.buffer();
-
             messageBuilder.a("   ");
 
             if (theOutputScope) {
@@ -224,7 +246,11 @@ public class ResolveDependenciesMojo extends AbstractResolveMojo {
                     }
                 }
             }
-            artifactStringList.add(messageBuilder + System.lineSeparator());
+            String message = messageBuilder.build();
+            if (outputFile != null) {
+                message = MessageUtils.stripAnsiCodes(message);
+            }
+            artifactStringList.add(message + System.lineSeparator());
         }
         if (theSort) {
             Collections.sort(artifactStringList);

@@ -20,7 +20,6 @@ package org.apache.maven.plugins.dependency.utils;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.inject.Provider;
 import javax.inject.Singleton;
 
 import java.io.File;
@@ -56,12 +55,12 @@ public class PomFileUtil {
     private final Logger logger = LoggerFactory.getLogger(PomFileUtil.class);
 
     private final ModelReader modelReader;
-    private final Provider<MavenProject> project;
+    private final MavenProject project;
 
     private final Optional<String> outputFile;
 
     @Inject
-    public PomFileUtil(ModelReader modelReader, Provider<MavenProject> project, String outputFile) {
+    public PomFileUtil(ModelReader modelReader, MavenProject project, String outputFile) {
         this.modelReader = modelReader;
         this.project = project;
         this.outputFile = Optional.ofNullable(outputFile);
@@ -77,8 +76,7 @@ public class PomFileUtil {
 
     private Model rebuildModel(List<String> pomLines) {
         String pom = String.join("\n", pomLines);
-        ModelSource modelSource =
-                new StringModelSource(pom, project.get().getFile().getPath());
+        ModelSource modelSource = new StringModelSource(pom, project.getFile().getPath());
         InputSource inputSource = new InputSource();
 
         Map<String, Object> options = new HashMap<String, Object>();
@@ -93,8 +91,8 @@ public class PomFileUtil {
             throw new RuntimeException(e);
         }
 
-        inputSource.setModelId(project.get().getModel().getId());
-        inputSource.setLocation(project.get().getFile().getAbsolutePath());
+        inputSource.setModelId(project.getModel().getId());
+        inputSource.setLocation(project.getFile().getAbsolutePath());
 
         return model;
     }
@@ -154,7 +152,7 @@ public class PomFileUtil {
     }
 
     public void removeDependency(Dependency dependency, List<String> pomLines) {
-        String pomLocation = project.get().getFile().toString();
+        String pomLocation = project.getFile().toString();
 
         InputLocation inputLocation = dependency.getLocation("");
         InputSource inputSource = inputLocation.getSource();
@@ -177,7 +175,7 @@ public class PomFileUtil {
     }
 
     public List<String> readPomFile() {
-        File pomFile = project.get().getFile();
+        File pomFile = project.getFile();
         return PomFileUtil.readLines(pomFile);
     }
 
@@ -190,7 +188,7 @@ public class PomFileUtil {
     }
 
     public void writePomFile(List<String> pomLines) {
-        File pomFile = outputFile.map(File::new).orElse(project.get().getFile());
+        File pomFile = outputFile.map(File::new).orElseGet(project::getFile);
         logger.info("Writing updated POM to {}", pomFile);
         PomFileUtil.writeLines(pomFile, pomLines);
     }

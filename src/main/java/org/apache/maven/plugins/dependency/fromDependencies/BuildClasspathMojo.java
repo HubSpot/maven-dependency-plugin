@@ -18,6 +18,8 @@
  */
 package org.apache.maven.plugins.dependency.fromDependencies;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
@@ -35,18 +37,22 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.utils.DependencyUtil;
+import org.apache.maven.plugins.dependency.utils.ResolverUtil;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
-import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.shared.artifact.filter.collection.ArtifactsFilter;
-import org.apache.maven.shared.transfer.repository.RepositoryManager;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
  * This goal outputs a classpath string of dependencies from the local repository to a file or log.
@@ -54,13 +60,11 @@ import org.apache.maven.shared.transfer.repository.RepositoryManager;
  * @author ankostis
  * @since 2.0-alpha-2
  */
-// CHECKSTYLE_OFF: LineLength
 @Mojo(
         name = "build-classpath",
         requiresDependencyResolution = ResolutionScope.TEST,
         defaultPhase = LifecyclePhase.GENERATE_SOURCES,
         threadSafe = true)
-// CHECKSTYLE_ON: LineLength
 public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements Comparator<Artifact> {
 
     @Parameter(property = "outputEncoding", defaultValue = "${project.reporting.outputEncoding}")
@@ -87,12 +91,14 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
 
     /**
      * If defined, the name of a property to which the classpath string will be written.
+     * If neither this nor the outputFile parameter is set, the classpath will be logged at INFO level.
      */
     @Parameter(property = "mdep.outputProperty")
     private String outputProperty;
 
     /**
-     * The file to write the classpath string. If undefined, it just prints the classpath as [INFO].
+     * If defined, the file to which the classpath string will be written.
+     * If neither this nor the outputProperty parameter is set, the classpath will be logged at INFO level.
      */
     @Parameter(property = "mdep.outputFile")
     private File outputFile;
@@ -106,7 +112,7 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
     /**
      * Override the char used between the paths. This field is initialized to contain the first character of the value
      * of the system property file.separator. On UNIX systems the value of this field is '/'; on Microsoft Windows
-     * systems it is '\'. The default is File.separator
+     * systems it is '\'. The default is File.separator.
      *
      * @since 2.0
      */
@@ -158,19 +164,25 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
     @Parameter(property = "mdep.useBaseVersion", defaultValue = "true")
     private boolean useBaseVersion = true;
 
-    /**
-     * Maven ProjectHelper
-     */
-    @Component
-    private MavenProjectHelper projectHelper;
+    private final MavenProjectHelper projectHelper;
 
-    @Component
-    private RepositoryManager repositoryManager;
+    @Inject
+    protected BuildClasspathMojo(
+            MavenSession session,
+            BuildContext buildContext,
+            MavenProject project,
+            ResolverUtil resolverUtil,
+            ProjectBuilder projectBuilder,
+            ArtifactHandlerManager artifactHandlerManager,
+            MavenProjectHelper projectHelper) {
+        super(session, buildContext, project, resolverUtil, projectBuilder, artifactHandlerManager);
+        this.projectHelper = projectHelper;
+    }
 
     /**
      * Main entry into mojo. Gets the list of dependencies and iterates to create a classpath.
      *
-     * @throws MojoExecutionException with a message if an error occurs.
+     * @throws MojoExecutionException with a message if an error occurs
      * @see #getResolvedDependencies(boolean)
      */
     @Override
@@ -227,23 +239,26 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
             }
         }
 
-        if (outputFile == null) {
-            getLog().info("Dependencies classpath:" + System.lineSeparator() + cpString);
-        } else {
+        if (outputFile != null) {
             if (regenerateFile || !isUpToDate(cpString)) {
                 storeClasspathFile(cpString, outputFile);
             } else {
                 this.getLog().info("Skipped writing classpath file '" + outputFile + "'.  No changes found.");
             }
         }
+
+        if (outputProperty == null && outputFile == null) {
+            getLog().info("Dependencies classpath:" + System.lineSeparator() + cpString);
+        }
+
         if (attach) {
             attachFile(cpString);
         }
     }
 
     /**
-     * @param cpString The classpath.
-     * @throws MojoExecutionException in case of an error.
+     * @param cpString the classpath
+     * @throws MojoExecutionException in case of an error
      */
     protected void attachFile(String cpString) throws MojoExecutionException {
         File attachedFile = new File(getProject().getBuild().getDirectory(), "classpath");
@@ -253,7 +268,7 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
     }
 
     /**
-     * Appends the artifact path into the specified StringBuilder.
+     * Appends the artifact path to the specified StringBuilder.
      *
      * @param art {@link Artifact}
      * @param sb {@link StringBuilder}
@@ -263,14 +278,12 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
             String file = art.getFile().getPath();
             // substitute the property for the local repo path to make the classpath file portable.
             if (localRepoProperty != null && !localRepoProperty.isEmpty()) {
-                ProjectBuildingRequest projectBuildingRequest = session.getProjectBuildingRequest();
-                File localBasedir = repositoryManager.getLocalRepositoryBasedir(projectBuildingRequest);
-
-                file = file.replace(localBasedir.getAbsolutePath(), localRepoProperty);
+                File localBasedir =
+                        session.getRepositorySession().getLocalRepository().getBasedir();
+                file = StringUtils.replace(file, localBasedir.getAbsolutePath(), localRepoProperty);
             }
             sb.append(file);
         } else {
-            // TODO: add param for prepending groupId and version.
             sb.append(prefix);
             sb.append(File.separator);
             sb.append(DependencyUtil.getFormattedFileName(
@@ -282,7 +295,7 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
      * Checks that new classpath differs from that found inside the old classpathFile.
      *
      * @return true if the specified classpath equals the one found inside the file, false otherwise (including when
-     *         file does not exist but new classpath does).
+     *         file does not exist but new classpath does)
      */
     private boolean isUpToDate(String cpString) {
         try {
@@ -345,7 +358,7 @@ public class BuildClasspathMojo extends AbstractDependencyFilterMojo implements 
      * @param art2 second object
      * @return the value <code>0</code> if the argument string is equal to this string; a value less than <code>0</code>
      *         if this string is lexicographically less than the string argument; and a value greater than
-     *         <code>0</code> if this string is lexicographically greater than the string argument.
+     *         <code>0</code> if this string is lexicographically greater than the string argument
      */
     @Override
     public int compare(Artifact art1, Artifact art2) {
